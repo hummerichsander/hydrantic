@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hydrantic"
+description = """
+Hydrantic ...
+"""
+readme = "README.md"
+version = "0.0.1"
+requires-python = ">= 3.8"
+dependencies = [
+    "hydra-core",
+    "pydantic",
+    "pytorch",
+    "lightning",
+    "wandb",
+]
