@@ -24,7 +24,9 @@ class Model(lightning.LightningModule, ABC):
         super().__init__()
 
         if not isinstance(hparams, self.hparams_schema):
-            raise ValueError("hparams must be an instance of the specified hparams_schema")
+            raise ValueError(
+                "hparams must be an instance of the specified hparams_schema"
+            )
 
         self.save_hyperparameters(hparams.attribute_dict)
 
@@ -36,9 +38,13 @@ class Model(lightning.LightningModule, ABC):
         :param batch_idx: index of batch
         :return: dictionary of metric names and values"""
 
-        raise NotImplementedError("compute_metrics must be implemented in subclasses of Model")
+        raise NotImplementedError(
+            "compute_metrics must be implemented in subclasses of Model"
+        )
 
-    def _evaluate_metrics(self, metrics: dict[str, torch.Tensor], log_prefix: str) -> None:
+    def _evaluate_metrics(
+        self, metrics: dict[str, torch.Tensor], log_prefix: str
+    ) -> None:
         """Evaluates metrics and logs them to the Lightning logger.
 
         :param metrics: dictionary of metric names and values
@@ -47,7 +53,9 @@ class Model(lightning.LightningModule, ABC):
         if metrics is None:
             raise ValueError("metrics must not be None")
         if "loss" not in metrics:
-            raise ValueError(f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}")
+            raise ValueError(
+                f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}"
+            )
 
         for metric_name, metric_value in metrics.items():
             self.log(

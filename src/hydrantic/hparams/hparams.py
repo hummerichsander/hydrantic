@@ -1,6 +1,6 @@
 from typing import Any
 
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 from pydantic import BaseModel
 from pydantic import Field
 
@@ -14,7 +14,7 @@ class Hparams(BaseModel):
         super().__init__(**data)
 
     @classmethod
-    def from_config(cls, config: OmegaConf):
+    def from_config(cls, config: OmegaConf | DictConfig):
         """Create an instance of the class from a config object.
 
         :param config: The config object.
