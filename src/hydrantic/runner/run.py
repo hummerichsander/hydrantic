@@ -27,9 +27,7 @@ class RunConfig(OmegaConf):
     data_hparams: DataHparams
 
 
-@hydra.main(
-    version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"])).as_posix()
-)
+@hydra.main(version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"])).as_posix())
 def main(cfg: RunConfig):
     """Launch a model from a config file."""
     base_dir = Path(hydra.utils.get_original_cwd())
@@ -46,8 +44,8 @@ def main(cfg: RunConfig):
 
     model = model_class(model_hparams)
 
-    data_hparams = DataHparams.from_config(cfg.data_hparams)
-    data_class = import_from_string(data_hparams.module_name)
+    data_class = import_from_string(cfg.data_hparams.module_name)
+    data_hparams = data_class.hparams_schema.from_config(cfg.data_hparams)
     data = data_class(data_hparams)
     console_logger.info(
         f"Data split: train={len(data.train_loader)}, val={len(data.val_loader)}, test={len(data.test_loader)}"

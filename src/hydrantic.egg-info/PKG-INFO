@@ -1,8 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: hydrantic
 Version: 0.0.1
 Summary: Hydrantic ...
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: hydra-core
-Requires-Dist: pydantic
+License-File: LICENSE
+Requires-Dist: hydra-core~=1.3.2
+Requires-Dist: pydantic~=2.10.3
+Requires-Dist: torch~=2.5.1
+Requires-Dist: lightning~=2.4.0
+Requires-Dist: wandb~=0.19.1
+Requires-Dist: pytest~=8.3.4
+
+# Hydrantic
+
+## About
+Hydrantic is an easy-to-use model prototyping and training interface combing pydantic's well-engineered schema 
+definition with the configuration capabilities offered by hydra. It furthermore uses pytorch lightning together with
+weights  & biases for fast model training and logging.

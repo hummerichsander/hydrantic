@@ -1,4 +1,4 @@
-from typing import TypeVar
+from typing import TypeVar, Type
 
 from abc import abstractmethod, ABC
 
@@ -16,6 +16,8 @@ class PyTorchData(ABC):
     validation (and test) sets and makes the datasets and corresponding loaders available as properties.
     """
 
+    hparams_schema: Type[DataHparams]
+
     def __init__(self, hparams: DataHparams):
         self.hparams = hparams
         self.split = self._configure_split()
@@ -28,9 +30,7 @@ class PyTorchData(ABC):
         """Configures the dataset. Must be implemented in subclasses of Data and should return an instance of Dataset.
 
         :return: The configured dataset."""
-        raise NotImplementedError(
-            "configure_dataset must be implemented in subclasses of Data"
-        )
+        raise NotImplementedError("configure_dataset must be implemented in subclasses of Data")
 
     def _configure_split(self) -> list[Subset[_T]]:
         """Configures the dataset from the module name and kwargs specified in the hparams. Furthermore splits the
