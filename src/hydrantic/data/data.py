@@ -30,7 +30,9 @@ class PyTorchData(ABC):
         """Configures the dataset. Must be implemented in subclasses of Data and should return an instance of Dataset.
 
         :return: The configured dataset."""
-        raise NotImplementedError("configure_dataset must be implemented in subclasses of Data")
+        raise NotImplementedError(
+            "configure_dataset must be implemented in subclasses of Data"
+        )
 
     def _configure_split(self) -> list[Subset[_T]]:
         """Configures the dataset from the module name and kwargs specified in the hparams. Furthermore splits the

@@ -27,7 +27,9 @@ class RunConfig(OmegaConf):
     data_hparams: DataHparams
 
 
-@hydra.main(version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"])).as_posix())
+@hydra.main(
+    version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"])).as_posix()
+)
 def main(cfg: RunConfig):
     """Launch a model from a config file."""
     base_dir = Path(hydra.utils.get_original_cwd())

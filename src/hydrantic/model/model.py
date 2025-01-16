@@ -1,8 +1,10 @@
-from typing import Type, Any
+import types
+from typing import Type, Any, Optional, Union, Sequence, IO, Self
 
 from abc import ABC, abstractmethod
 
 import torch
+from lightning.fabric.utilities.types import _PATH, _MAP_LOCATION_TYPE
 from torch import nn
 
 import lightning
@@ -20,15 +22,22 @@ from ..utils.utils import import_from_string
 class Model(lightning.LightningModule, ABC):
     hparams_schema: Type[ModelHparams]
 
-    def __init__(self, hparams: ModelHparams):
+    def __init__(self, hparams: ModelHparams | dict):
         super().__init__()
+
+        if isinstance(hparams, dict):
+            hparams = self.hparams_schema(**hparams)
+        elif not isinstance(hparams, ModelHparams):
+            hparams = self.hparams_schema(**hparams.__dict__)
 
         if not isinstance(hparams, self.hparams_schema):
             raise ValueError(
                 "hparams must be an instance of the specified hparams_schema"
             )
 
-        self.save_hyperparameters(hparams.attribute_dict)
+        # Hyperparameters need to be stored under the 'hparams' key in order to load them via `load_from_checkpoint`
+        self.save_hyperparameters(dict(hparams=hparams.attribute_dict))
+        self._set_hparams(hparams.attribute_dict)
 
     @abstractmethod
     def compute_metrics(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
