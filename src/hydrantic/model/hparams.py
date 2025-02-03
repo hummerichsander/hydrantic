@@ -41,7 +41,7 @@ class EarlyStoppingHparams(Hparams):
 
 
 class ModelHparams(Hparams):
-    module_name: str
+    module_name: str | None = None
 
     optimizer: OptimizerHparams = Hparam(default_factory=OptimizerHparams)
     scheduler: SchedulerHparams = Hparam(default_factory=SchedulerHparams)

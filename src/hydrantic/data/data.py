@@ -21,18 +21,18 @@ class PyTorchData(ABC):
     def __init__(self, hparams: DataHparams):
         self.hparams = hparams
         self.split = self._configure_split()
-        self.train_loader = self._configure_dataloader(self.train)
-        self.val_loader = self._configure_dataloader(self.val)
-        self.test_loader = self._configure_dataloader(self.test)
+
+        if self.hparams.loader is not None:
+            self.train_loader = self._configure_dataloader(self.train)
+            self.val_loader = self._configure_dataloader(self.val)
+            self.test_loader = self._configure_dataloader(self.test)
 
     @abstractmethod
     def get_dataset(self) -> Dataset[_T]:
         """Configures the dataset. Must be implemented in subclasses of Data and should return an instance of Dataset.
 
         :return: The configured dataset."""
-        raise NotImplementedError(
-            "configure_dataset must be implemented in subclasses of Data"
-        )
+        raise NotImplementedError("configure_dataset must be implemented in subclasses of Data")
 
     def _configure_split(self) -> list[Subset[_T]]:
         """Configures the dataset from the module name and kwargs specified in the hparams. Furthermore splits the

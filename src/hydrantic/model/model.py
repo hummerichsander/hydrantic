@@ -1,5 +1,5 @@
 import types
-from typing import Type, Any, Optional, Union, Sequence, IO, Self
+from typing import Type, Any, Optional, Union, Sequence, IO, Self, Literal
 
 from abc import ABC, abstractmethod
 
@@ -14,13 +14,15 @@ from lightning.pytorch.callbacks import (
     ModelCheckpoint,
     LearningRateMonitor,
 )
+from torch.utils.data import DataLoader
 
-from .hparams import ModelHparams
+from .hparams import ModelHparams, OptimizerHparams
 from ..utils.utils import import_from_string
 
 
 class Model(lightning.LightningModule, ABC):
     hparams_schema: Type[ModelHparams]
+    has_logger: bool = True
 
     def __init__(self, hparams: ModelHparams | dict):
         super().__init__()
@@ -31,9 +33,7 @@ class Model(lightning.LightningModule, ABC):
             hparams = self.hparams_schema(**hparams.__dict__)
 
         if not isinstance(hparams, self.hparams_schema):
-            raise ValueError(
-                "hparams must be an instance of the specified hparams_schema"
-            )
+            raise ValueError("hparams must be an instance of the specified hparams_schema")
 
         # Hyperparameters need to be stored under the 'hparams' key in order to load them via `load_from_checkpoint`
         self.save_hyperparameters(dict(hparams=hparams.attribute_dict))
@@ -47,13 +47,9 @@ class Model(lightning.LightningModule, ABC):
         :param batch_idx: index of batch
         :return: dictionary of metric names and values"""
 
-        raise NotImplementedError(
-            "compute_metrics must be implemented in subclasses of Model"
-        )
+        raise NotImplementedError("compute_metrics must be implemented in subclasses of Model")
 
-    def _evaluate_metrics(
-        self, metrics: dict[str, torch.Tensor], log_prefix: str
-    ) -> None:
+    def _evaluate_metrics(self, metrics: dict[str, torch.Tensor], log_prefix: str) -> None:
         """Evaluates metrics and logs them to the Lightning logger.
 
         :param metrics: dictionary of metric names and values
@@ -62,9 +58,7 @@ class Model(lightning.LightningModule, ABC):
         if metrics is None:
             raise ValueError("metrics must not be None")
         if "loss" not in metrics:
-            raise ValueError(
-                f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}"
-            )
+            raise ValueError(f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}")
 
         for metric_name, metric_value in metrics.items():
             self.log(
@@ -129,7 +123,8 @@ class Model(lightning.LightningModule, ABC):
         if self.hparams.early_stopping is not None:
             callbacks.append(EarlyStopping(**self.hparams.early_stopping))
 
-        callbacks.append(LearningRateMonitor())
+        if self.has_logger:
+            callbacks.append(LearningRateMonitor())
 
         return callbacks
 
@@ -157,3 +152,36 @@ class Model(lightning.LightningModule, ABC):
         :return: number of parameters"""
 
         return sum(self.num_params_by_module.values())
+
+    def fit_fast(
+        self,
+        train_loader: DataLoader,
+        val_loader: DataLoader | None = None,
+        n_epochs: int = 1,
+        lr: float = 1e-3,
+        accelerator: Literal["cpu", "gpu", "tpu", "hpu", "auto"] = "cpu",
+        precision: Literal[64, 32, 16, "bf16"] = 32,
+        verbose: bool = True,
+    ) -> Self:
+        """Fits the model to the training data using the Adam optimizer
+
+        :param train_loader: Training dataloader
+        :param val_dataloader: Validation dataloader
+        :param n_epochs: Number of epochs to train
+        :param lr: Learning rate to use in the Adam optimizer
+        :param accelerator: Accelerator to use to train on
+        :param precision: Precision to use to train on
+        :param verbose: whether to log the training progress in a progress bar
+        :return: the trained model"""
+
+        from lightning.pytorch.trainer import Trainer
+
+        self.has_logger = False
+
+        self.hparams.optimizer = OptimizerHparams(module_name="torch.optim.Adam", kwargs={"lr": lr})
+
+        trainer = Trainer(
+            logger=False, accelerator=accelerator, precision=precision, max_epochs=n_epochs, enable_progress_bar=verbose
+        )
+        trainer.fit(self, train_loader, val_loader)
+        return self
