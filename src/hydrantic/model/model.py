@@ -1,11 +1,13 @@
-import types
-from typing import Type, Any, Optional, Union, Sequence, IO, Self, Literal
+import stat
+from typing import Type, Self, Literal, Any
 
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import torch
-from lightning.fabric.utilities.types import _PATH, _MAP_LOCATION_TYPE
-from torch import nn
+from torch import nn, Tensor
+
+import wandb
 
 import lightning
 from lightning.pytorch.callbacks import (
@@ -185,3 +187,16 @@ class Model(lightning.LightningModule, ABC):
         )
         trainer.fit(self, train_loader, val_loader)
         return self
+    
+    @classmethod
+    def load_from_wandb_artifact(cls, artifact_name: str, dl_path: str | None = None) -> Self:
+        """Loads the model from a Weights & Biases artifact.
+
+        :param artifact_name: Name of the artifact to load
+        :param dl_path: Path to download the artifact to
+        :return: the loaded model"""
+
+        run = wandb.init()
+        artifact = run.use_artifact(artifact_name)
+        artifact_dir = Path(artifact.download(dl_path))
+        return cls.load_from_checkpoint(artifact_dir / "model.ckpt")
