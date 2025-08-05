@@ -1,11 +1,10 @@
-import stat
-from typing import Type, Self, Literal, Any
+from typing import Type, Literal, Any, cast
 
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 import torch
-from torch import nn, Tensor
+from torch import nn
 
 import wandb
 
@@ -40,6 +39,8 @@ class Model(lightning.LightningModule, ABC):
         # Hyperparameters need to be stored under the 'hparams' key in order to load them via `load_from_checkpoint`
         self.save_hyperparameters(dict(hparams=hparams.attribute_dict))
         self._set_hparams(hparams.attribute_dict)
+
+        self.hps = hparams
 
     @abstractmethod
     def compute_metrics(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
@@ -164,7 +165,7 @@ class Model(lightning.LightningModule, ABC):
         accelerator: Literal["cpu", "gpu", "tpu", "hpu", "auto"] = "cpu",
         precision: Literal[64, 32, 16, "bf16"] = 32,
         verbose: bool = True,
-    ) -> Self:
+    ) -> None:
         """Fits the model to the training data using the Adam optimizer
 
         :param train_loader: Training dataloader
@@ -186,10 +187,9 @@ class Model(lightning.LightningModule, ABC):
             logger=False, accelerator=accelerator, precision=precision, max_epochs=n_epochs, enable_progress_bar=verbose
         )
         trainer.fit(self, train_loader, val_loader)
-        return self
-    
+
     @classmethod
-    def load_from_wandb_artifact(cls, artifact_name: str, dl_path: str | None = None) -> Self:
+    def load_from_wandb_artifact(cls, artifact_name: str, dl_path: str | None = None):
         """Loads the model from a Weights & Biases artifact.
 
         :param artifact_name: Name of the artifact to load

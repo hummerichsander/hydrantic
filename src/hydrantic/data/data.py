@@ -20,6 +20,7 @@ class PyTorchData(ABC):
 
     def __init__(self, hparams: DataHparams):
         self.hparams = hparams
+        self.pre_init()
         self.split = self._configure_split()
 
         if self.hparams.loader is not None:
@@ -115,3 +116,10 @@ class PyTorchData(ABC):
             split = random_split(dataset, dataset_split)
 
         return split
+
+    def pre_init(self) -> None:
+        """Pre-initializes the dataset. This method is called before the dataset is initialized and can be used to
+        perform any necessary setup.
+
+        :return: None"""
+        pass
