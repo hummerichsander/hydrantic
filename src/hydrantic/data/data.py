@@ -21,6 +21,7 @@ class PyTorchData(ABC):
 
     def __init__(self, thparams: DataHparams):
         self.thparams = thparams
+        self.hparams = {**thparams}
         self.pre_init()
         self.split = self._configure_split()
 
