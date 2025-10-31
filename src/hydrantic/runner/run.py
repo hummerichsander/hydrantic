@@ -56,7 +56,7 @@ def main(cfg: RunConfig) -> None:
         f"Data split: "
         f"train={len(data.train_loader)}, val={len(data.val_loader)}, test={len(data.test_loader)}"
     )
-    console_logger.info(f"Split seed: {data.hparams.seed}")
+    console_logger.info(f"Split seed: {data_hparams.seed}")
 
     logger = WandbLogger(**run_hparams.logger)
     trainer = Trainer(logger=logger, **run_hparams.trainer)
