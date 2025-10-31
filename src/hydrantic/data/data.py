@@ -12,56 +12,64 @@ _T = TypeVar("_T")
 
 
 class PyTorchData(ABC):
-    """This is the base class for all torch datasets. Internally it handles the splitting of the dataset into train,
-    validation (and test) sets and makes the datasets and corresponding loaders available as properties.
+    """This is the base class for all torch datasets. Internally it handles the splitting of the
+    dataset into train, validation (and test) sets and makes the datasets and corresponding loaders
+    available as properties.
     """
 
     hparams_schema: Type[DataHparams]
 
-    def __init__(self, hparams: DataHparams):
-        self.hparams = hparams
+    def __init__(self, thparams: DataHparams):
+        self.thparams = thparams
         self.pre_init()
         self.split = self._configure_split()
 
-        if self.hparams.loader is not None:
-            self.train_loader = self._configure_dataloader(self.train)
-            self.val_loader = self._configure_dataloader(self.val)
-            self.test_loader = self._configure_dataloader(self.test)
+        self.train_loader = self._configure_dataloader(self.train)
+        self.val_loader = self._configure_dataloader(self.val)
+        self.test_loader = self._configure_dataloader(self.test)
 
     @abstractmethod
-    def get_dataset(self) -> Dataset[_T]:
-        """Configures the dataset. Must be implemented in subclasses of Data and should return an instance of Dataset.
+    def get_dataset(self) -> Dataset[object]:
+        """Configures the dataset. Must be implemented in subclasses of Data and should return an
+        instance of Dataset.
 
         :return: The configured dataset."""
         raise NotImplementedError("configure_dataset must be implemented in subclasses of Data")
 
-    def _configure_split(self) -> list[Subset[_T]]:
-        """Configures the dataset from the module name and kwargs specified in the hparams. Furthermore splits the
-        dataset into the specified fractions with the specified random seed.
+    def _configure_split(self) -> list[Subset[object]]:
+        """Configures the dataset from the module name and kwargs specified in the hparams.
+        Furthermore splits the dataset into the specified fractions with the specified random seed.
 
         :return: The split data subsets"""
 
         dataset = self.get_dataset()
-        return self.split_dataset(dataset, self.hparams.split, self.hparams.seed)
+        return self.split_dataset(dataset, self.thparams.split, self.thparams.seed)
 
-    def _configure_dataloader(self, dataset: Dataset[_T]) -> DataLoader[_T]:
+    def _configure_dataloader(self, dataset: Dataset[object] | None) -> DataLoader[object] | None:
         """Configures the dataloader from the module name and kwargs specified in the hparams.
+
 
         :dataset: The dataset to use for the dataloader.
         :return: The configured dataloader."""
 
+        if dataset is None:
+            return None
+
+        if self.thparams.loader is None:
+            return None
+
         return DataLoader(
             dataset,
-            batch_size=self.hparams.loader.batch_size,
-            shuffle=self.hparams.loader.shuffle,
-            pin_memory=self.hparams.loader.pin_memory,
-            num_workers=self.hparams.loader.num_workers,
-            persistent_workers=self.hparams.loader.persistent_workers,
-            drop_last=self.hparams.loader.drop_last,
+            batch_size=self.thparams.loader.batch_size,
+            shuffle=self.thparams.loader.shuffle,
+            pin_memory=self.thparams.loader.pin_memory,
+            num_workers=self.thparams.loader.num_workers,
+            persistent_workers=self.thparams.loader.persistent_workers,
+            drop_last=self.thparams.loader.drop_last,
         )
 
     @property
-    def full(self) -> Dataset[_T]:
+    def full(self) -> Dataset[object]:
         """Returns the full dataset.
 
         :return: The full dataset."""
@@ -69,7 +77,7 @@ class PyTorchData(ABC):
         return ConcatDataset(self.split)
 
     @property
-    def train(self) -> Dataset[_T]:
+    def train(self) -> Dataset[object]:
         """Returns the train dataset.
 
         :return: The train dataset."""
@@ -77,7 +85,7 @@ class PyTorchData(ABC):
         return self.split[0]
 
     @property
-    def val(self) -> Dataset[_T]:
+    def val(self) -> Dataset[object]:
         """Returns the validation dataset.
 
         :return: The validation dataset."""
@@ -85,21 +93,21 @@ class PyTorchData(ABC):
         return self.split[1]
 
     @property
-    def test(self) -> Dataset[_T] | list:
-        """Returns the test dataset. If no test dataset is specified, returns empty list.
+    def test(self) -> Dataset[object] | None:
+        """Returns the test dataset. If no test dataset is specified, returns None.
 
         :return: The test dataset."""
 
         if len(self.split) < 3:
-            return []
+            return None
         return self.split[2]
 
     @staticmethod
     def split_dataset(
-        dataset: Dataset[_T],
+        dataset: Dataset[object],
         dataset_split: tuple[float, float] | tuple[float, float, float],
         dataset_split_seed: int,
-    ) -> list[Subset[_T]]:
+    ) -> list[Subset[object]]:
         """Split the dataset into train, validation (and test) sets.
 
         :param dataset: The dataset to split.
@@ -118,8 +126,8 @@ class PyTorchData(ABC):
         return split
 
     def pre_init(self) -> None:
-        """Pre-initializes the dataset. This method is called before the dataset is initialized and can be used to
-        perform any necessary setup.
+        """Pre-initializes the dataset. This method is called before the dataset is initialized and
+        can be used to perform any necessary setup.
 
         :return: None"""
         pass

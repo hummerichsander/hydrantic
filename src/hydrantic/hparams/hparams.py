@@ -3,14 +3,14 @@ from typing_extensions import Self
 
 from yaml import safe_load
 from omegaconf import OmegaConf, DictConfig
+from collections.abc import Mapping
 from pydantic import BaseModel
 from pydantic import Field
 
-from ..utils.attribute_dict import AttributeDict
 
-
-class Hparams(BaseModel):
-    """This is the base class for all hyperparameters. It uses the pydantic library to validate the hyperparameters."""
+class Hparams(BaseModel, Mapping):
+    """This is the base class for all hyperparameters. It uses the pydantic library to validate the
+    hyperparameters."""
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -22,7 +22,7 @@ class Hparams(BaseModel):
         :param config: The config object.
         :return: The instance of the class."""
 
-        dict_config: dict[str, Any] = OmegaConf.to_object(config)
+        dict_config: dict[str, Any] = OmegaConf.to_object(config)  # type: ignore
         return cls(**dict_config)
 
     @classmethod
@@ -46,11 +46,18 @@ class Hparams(BaseModel):
             config = config.get(key, {})
         return cls.from_dict(config)
 
-    @property
-    def attribute_dict(self):
-        """Return the attributes of the class as an attributedict."""
+    def __getitem__(self, key: str) -> Any:
+        return getattr(self, key)
 
-        return AttributeDict(**self.model_dump(mode="dict"))
+    def __iter__(self):
+        for field in self.model_fields:
+            yield field, getattr(self, field)
+
+    def keys(self):
+        return self.model_fields.keys()
+
+    def __len__(self) -> int:
+        return len(self.model_fields)
 
 
 Hparam = Field

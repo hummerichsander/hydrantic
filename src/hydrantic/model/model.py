@@ -22,28 +22,38 @@ from ..utils.utils import import_from_string
 
 
 class Model(lightning.LightningModule, ABC):
+    """This is the base class for all models. It uses the LightningModule class from the PyTorch
+    Lightning library.
+
+    Subclasses must implement the `compute_metrics` method and define the `hparams_schema`
+    attribute.
+
+    It provides a typed version of the hyperparameters under the `thparams` attribute."""
+
     hparams_schema: Type[ModelHparams]
     has_logger: bool = True
 
-    def __init__(self, hparams: ModelHparams | dict):
+    def __init__(self, thparams: ModelHparams | dict):
         super().__init__()
 
-        if isinstance(hparams, dict):
-            hparams = self.hparams_schema(**hparams)
-        elif not isinstance(hparams, ModelHparams):
-            hparams = self.hparams_schema(**hparams.__dict__)
+        # Validate input
+        if thparams is None:
+            raise TypeError("thparams must not be None")
 
-        if not isinstance(hparams, self.hparams_schema):
-            raise ValueError(
-                "hparams must be an instance of the specified hparams_schema"
+        # If already the desired schema instance, accept it directly
+        if isinstance(thparams, self.hparams_schema):
+            pass
+        elif isinstance(thparams, dict):
+            thparams = self.hparams_schema(**thparams)
+        else:
+            raise TypeError(
+                f"thparams must be of type {self.hparams_schema} or dict, got {type(thparams)}"
             )
 
-        # Hyperparameters need to be stored under the 'hparams' key in order to load them via `load_from_checkpoint`
-        self.save_hyperparameters(dict(hparams=hparams.attribute_dict))
-        self._set_hparams(hparams.attribute_dict)
+        self.save_hyperparameters(dict(hparams={**thparams}))
+        self.thparams = thparams
 
-        # Set the precision for matrix multiplications
-        torch.set_float32_matmul_precision(hparams.matmul_precision)
+        torch.set_float32_matmul_precision(thparams.matmul_precision)
 
     @abstractmethod
     def compute_metrics(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
@@ -53,13 +63,9 @@ class Model(lightning.LightningModule, ABC):
         :param batch_idx: index of batch
         :return: dictionary of metric names and values"""
 
-        raise NotImplementedError(
-            "compute_metrics must be implemented in subclasses of Model"
-        )
+        raise NotImplementedError("compute_metrics must be implemented in subclasses of Model")
 
-    def _evaluate_metrics(
-        self, metrics: dict[str, torch.Tensor], log_prefix: str
-    ) -> None:
+    def _evaluate_metrics(self, metrics: dict[str, torch.Tensor], log_prefix: str) -> None:
         """Evaluates metrics and logs them to the Lightning logger.
 
         :param metrics: dictionary of metric names and values
@@ -68,9 +74,7 @@ class Model(lightning.LightningModule, ABC):
         if metrics is None:
             raise ValueError("metrics must not be None")
         if "loss" not in metrics:
-            raise ValueError(
-                f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}"
-            )
+            raise ValueError(f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}")
 
         for metric_name, metric_value in metrics.items():
             self.log(
@@ -109,16 +113,16 @@ class Model(lightning.LightningModule, ABC):
         self._evaluate_metrics(metrics, "test")
 
     def configure_optimizers(self) -> dict[str, Any]:  # type: ignore
-        """Configures the optimizer and (optionally) learning rate scheduler. Utilizes the optimizer and scheduler
-        defined in the hparams.
+        """Configures the optimizer and (optionally) learning rate scheduler. Utilizes the optimizer
+        and scheduler defined in the hparams.
 
         :return: dictionary of optimizer and (optionally) learning rate scheduler"""
 
-        optimizer_module = import_from_string(self.hparams.optimizer.module_name)
-        optimizer = optimizer_module(self.parameters(), **self.hparams.optimizer.kwargs)
-        if self.hparams.scheduler.module_name is not None:
-            scheduler_module = import_from_string(self.hparams.scheduler.module_name)
-            scheduler = scheduler_module(optimizer, **self.hparams.scheduler.kwargs)
+        optimizer_module = import_from_string(self.thparams.optimizer.module_name)
+        optimizer = optimizer_module(self.parameters(), **self.thparams.optimizer.kwargs)
+        if self.thparams.scheduler.module_name is not None:
+            scheduler_module = import_from_string(self.thparams.scheduler.module_name)
+            scheduler = scheduler_module(optimizer, **self.thparams.scheduler.kwargs)
             return {"optimizer": optimizer, "lr_scheduler": scheduler}
         else:
             return {"optimizer": optimizer}
@@ -130,10 +134,10 @@ class Model(lightning.LightningModule, ABC):
 
         callbacks: list[Callback] = []
 
-        if self.hparams.checkpoint is not None:
-            callbacks.append(ModelCheckpoint(**self.hparams.checkpoint))
-        if self.hparams.early_stopping is not None:
-            callbacks.append(EarlyStopping(**self.hparams.early_stopping))
+        if self.thparams.checkpoint is not None:
+            callbacks.append(ModelCheckpoint(**self.thparams.checkpoint))
+        if self.thparams.early_stopping is not None:
+            callbacks.append(EarlyStopping(**self.thparams.early_stopping))
 
         if self.has_logger:
             callbacks.append(LearningRateMonitor())
@@ -190,7 +194,7 @@ class Model(lightning.LightningModule, ABC):
 
         self.has_logger = False
 
-        self.hparams.optimizer = OptimizerHparams(
+        self.thparams.optimizer = OptimizerHparams(
             module_name="torch.optim.Adam", kwargs={"lr": lr}
         )
 

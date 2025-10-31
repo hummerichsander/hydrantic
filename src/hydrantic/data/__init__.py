@@ -1,1 +1,1 @@
-from .data import PyTorchData
+from .data import PyTorchData  # noqa: F401

@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 import random
 
 from ..hparams import Hparams, Hparam
@@ -18,4 +16,6 @@ class DataHparams(Hparams):
     module_name: str | None = None
     loader: DataLoaderHparams | None = None
     seed: int = Hparam(default_factory=lambda: random.randint(0, 10_000))
-    split: tuple[float, float] | tuple[float, float, float] = Hparam(default_factory=lambda: [0.8, 0.1, 0.1])
+    split: tuple[float, float] | tuple[float, float, float] = Hparam(
+        default_factory=lambda: (0.8, 0.1, 0.1)
+    )

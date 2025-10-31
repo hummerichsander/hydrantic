@@ -4,7 +4,6 @@ from importlib import import_module
 import os
 import os.path as osp
 import ssl
-import sys
 import urllib
 from typing import Optional
 
@@ -24,9 +23,9 @@ def import_from_string(string: str) -> Any:
 
 
 def download_url(url: str, folder: str, filename: Optional[str] = None) -> str:
-    """Downloads a file from an URL to the specified folder.
-    Taken and adapted from pytorch_geometric:
-        https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/data/download.html#download_url
+    """Downloads a file from an URL to the specified folder. Taken and adapted from
+    pytorch_geometric:
+    https://pytorch-geometric.readthedocs.io/en/latest/_modules/torch_geometric/data/download.html#download_url
 
     :param url: URL to download the file from.
     :param folder: Folder to download the file to.

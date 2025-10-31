@@ -9,14 +9,16 @@ from ..hparams import Hparams, Hparam
 class TrainerHparams(Hparams):
     """This is the base class for all hyperparameters of a trainer."""
 
-    accelerator: Literal["cpu", "gpu", "tpu", "hpu", "auto"]
+    accelerator: Literal["cpu", "gpu", "tpu", "hpu", "auto"] = Hparam(
+        default_factory=lambda: "auto"
+    )
     devices: int = 1
     precision: Literal[64, 32, 16, "bf16"] = 32
 
     accumulate_grad_batches: int = 1
     gradient_clip_val: float | None = None
 
-    max_epochs: int
+    max_epochs: int = Hparam(default_factory=lambda: 10)
     max_time: str | None = None
     benchmark: bool = False
     deterministic: bool = False
