@@ -43,6 +43,8 @@ class EarlyStoppingHparams(Hparams):
 class ModelHparams(Hparams):
     module_name: str | None = None
 
+    matmul_precision: Literal["highest", "high", "medium"] = "highest"
+
     optimizer: OptimizerHparams = Hparam(default_factory=OptimizerHparams)
     scheduler: SchedulerHparams = Hparam(default_factory=SchedulerHparams)
     checkpoint: CheckpointHparams | None = Hparam(default_factory=CheckpointHparams)

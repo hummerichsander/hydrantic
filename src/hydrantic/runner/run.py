@@ -1,6 +1,5 @@
 import os
 import sys
-
 from pathlib import Path
 
 import hydra
@@ -27,9 +26,7 @@ class RunConfig(OmegaConf):
     data_hparams: DataHparams
 
 
-@hydra.main(
-    version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"])).as_posix()
-)
+@hydra.main(version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"]).as_posix()))
 def main(cfg: RunConfig):
     """Launch a model from a config file."""
     base_dir = Path(hydra.utils.get_original_cwd())
@@ -56,7 +53,14 @@ def main(cfg: RunConfig):
 
     logger = WandbLogger(**run_hparams.logger)
     trainer = Trainer(logger=logger, **run_hparams.trainer)
-    trainer.fit(model, data.train_loader, data.val_loader)
+
+    # Get resume_from_checkpoint from run_hparams (handled via Hydra config)
+    resume_from_checkpoint = run_hparams.get("resume_from_checkpoint")
+    if resume_from_checkpoint:
+        console_logger.info(f"Resuming training from checkpoint: {resume_from_checkpoint}")
+        trainer.fit(model, data.train_loader, data.val_loader, ckpt_path=resume_from_checkpoint)
+    else:
+        trainer.fit(model, data.train_loader, data.val_loader)
 
 
 if __name__ == "__main__":

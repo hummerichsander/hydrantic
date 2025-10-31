@@ -45,3 +45,4 @@ class LoggerHparams(Hparams):
 class RunHparams(Hparams):
     trainer: TrainerHparams = Hparam(default_factory=TrainerHparams)
     logger: LoggerHparams = Hparam(default_factory=LoggerHparams)
+    resume_from_checkpoint: str | None = None

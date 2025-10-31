@@ -1,4 +1,4 @@
-from typing import Type, Literal, Any, cast
+from typing import Type, Literal, Any
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -34,13 +34,16 @@ class Model(lightning.LightningModule, ABC):
             hparams = self.hparams_schema(**hparams.__dict__)
 
         if not isinstance(hparams, self.hparams_schema):
-            raise ValueError("hparams must be an instance of the specified hparams_schema")
+            raise ValueError(
+                "hparams must be an instance of the specified hparams_schema"
+            )
 
         # Hyperparameters need to be stored under the 'hparams' key in order to load them via `load_from_checkpoint`
         self.save_hyperparameters(dict(hparams=hparams.attribute_dict))
         self._set_hparams(hparams.attribute_dict)
 
-        self.hps = hparams
+        # Set the precision for matrix multiplications
+        torch.set_float32_matmul_precision(hparams.matmul_precision)
 
     @abstractmethod
     def compute_metrics(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
@@ -50,9 +53,13 @@ class Model(lightning.LightningModule, ABC):
         :param batch_idx: index of batch
         :return: dictionary of metric names and values"""
 
-        raise NotImplementedError("compute_metrics must be implemented in subclasses of Model")
+        raise NotImplementedError(
+            "compute_metrics must be implemented in subclasses of Model"
+        )
 
-    def _evaluate_metrics(self, metrics: dict[str, torch.Tensor], log_prefix: str) -> None:
+    def _evaluate_metrics(
+        self, metrics: dict[str, torch.Tensor], log_prefix: str
+    ) -> None:
         """Evaluates metrics and logs them to the Lightning logger.
 
         :param metrics: dictionary of metric names and values
@@ -61,7 +68,9 @@ class Model(lightning.LightningModule, ABC):
         if metrics is None:
             raise ValueError("metrics must not be None")
         if "loss" not in metrics:
-            raise ValueError(f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}")
+            raise ValueError(
+                f"metrics dictionary must contain a 'loss' key, got {metrics.keys()}"
+            )
 
         for metric_name, metric_value in metrics.items():
             self.log(
@@ -99,7 +108,7 @@ class Model(lightning.LightningModule, ABC):
         metrics = self.compute_metrics(batch, batch_idx)
         self._evaluate_metrics(metrics, "test")
 
-    def configure_optimizers(self) -> dict[str, Any]:
+    def configure_optimizers(self) -> dict[str, Any]:  # type: ignore
         """Configures the optimizer and (optionally) learning rate scheduler. Utilizes the optimizer and scheduler
         defined in the hparams.
 
@@ -181,10 +190,16 @@ class Model(lightning.LightningModule, ABC):
 
         self.has_logger = False
 
-        self.hparams.optimizer = OptimizerHparams(module_name="torch.optim.Adam", kwargs={"lr": lr})
+        self.hparams.optimizer = OptimizerHparams(
+            module_name="torch.optim.Adam", kwargs={"lr": lr}
+        )
 
         trainer = Trainer(
-            logger=False, accelerator=accelerator, precision=precision, max_epochs=n_epochs, enable_progress_bar=verbose
+            logger=False,
+            accelerator=accelerator,
+            precision=precision,
+            max_epochs=n_epochs,
+            enable_progress_bar=verbose,
         )
         trainer.fit(self, train_loader, val_loader)
 
