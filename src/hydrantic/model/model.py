@@ -1,4 +1,4 @@
-from typing import Type, Literal, Any
+from typing import Type, Literal, Any, Generic, TypeVar, ClassVar, cast
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -21,7 +21,10 @@ from .hparams import ModelHparams, OptimizerHparams
 from ..utils.utils import import_from_string
 
 
-class Model(lightning.LightningModule, ABC):
+H = TypeVar("H", bound=ModelHparams)
+
+
+class Model(Generic[H], lightning.LightningModule, ABC):
     """This is the base class for all models. It uses the LightningModule class from the PyTorch
     Lightning library.
 
@@ -30,7 +33,8 @@ class Model(lightning.LightningModule, ABC):
 
     It provides a typed version of the hyperparameters under the `thparams` attribute."""
 
-    hparams_schema: Type[ModelHparams]
+    hparams_schema: ClassVar[Type[ModelHparams]]
+    thparams: H
     has_logger: bool = True
 
     def __init__(self, thparams: ModelHparams | dict):
@@ -42,7 +46,7 @@ class Model(lightning.LightningModule, ABC):
 
         # If already the desired schema instance, accept it directly
         if isinstance(thparams, self.hparams_schema):
-            pass
+            thparams = cast(H, thparams)
         elif isinstance(thparams, dict):
             thparams = self.hparams_schema(**thparams)
         else:
@@ -51,7 +55,7 @@ class Model(lightning.LightningModule, ABC):
             )
 
         self.save_hyperparameters(dict(hparams={**thparams}))
-        self.thparams = thparams
+        self.thparams = cast(H, thparams)
 
         torch.set_float32_matmul_precision(thparams.matmul_precision)
 
