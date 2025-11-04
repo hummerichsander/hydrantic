@@ -15,7 +15,7 @@ from .hparams import RunHparams
 from ..utils.utils import import_from_string
 
 
-console_logger = logging.getLogger("hydrantic.runner.run")
+console_logger = logging.getLogger("hydrantic.cli.fit")
 
 
 class ModelConfig(OmegaConf):
