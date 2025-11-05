@@ -171,7 +171,7 @@ class Model(Generic[H], lightning.LightningModule, ABC):
 
         :return: number of parameters"""
 
-        return sum(self.num_params_by_module.values())
+        return sum(p.numel() for p in self.parameters())
 
     def fit_fast(
         self,
