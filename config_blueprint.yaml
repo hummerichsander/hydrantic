@@ -1,4 +1,4 @@
-model_hparams:
+model_config:
   module_name: # add you model module name, e.g., `my_module.MyModel`
 
   # add your model's parameters as specified in its `ModelHparams`
@@ -22,7 +22,7 @@ model_hparams:
     save_top_k: 5  # saves the best 5 runs
     save_every_n_epochs: 1  # evaluate checkpoints every epoch
 
-run_hparams:
+run_config:
   trainer:
     accelerator: cpu  # use gpu
     max_epochs: 1_000  # number of epochs to train
@@ -33,7 +33,7 @@ run_hparams:
     log_model: false  # whether to log the model to w&b
     offline: false  # whether to upload the logs to w&b
 
-data_hparams:
+data_config:
   module_name:  # add you dataset module name, e.g. my_module.MyDataset
   loader:
     batch_size: 64  # batch size used in your dataloader
