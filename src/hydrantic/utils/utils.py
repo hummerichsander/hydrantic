@@ -56,3 +56,24 @@ def download_url(url: str, folder: str, filename: Optional[str] = None) -> str:
             f.write(chunk)
 
     return path
+
+
+def unzip_file(zip_path: str, folder: str, remove_zip: bool = False) -> str:
+    """Unzips a zip file to the specified folder.
+
+    :param zip_path: Path to the zip file.
+    :param folder: Folder to unzip the file to.
+    :param remove_zip: Whether to remove the zip file after unzipping.
+    :return: The path to the folder where the file was unzipped."""
+
+    import zipfile
+
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(folder)
+    print("Unzipped file {} to folder {}".format(zip_path, folder))
+
+    if remove_zip:
+        os.remove(zip_path)
+        print("Removed zip file {}".format(zip_path))
+
+    return folder
