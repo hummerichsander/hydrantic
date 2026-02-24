@@ -1,4 +1,4 @@
-from typing import TypeVar, Type
+from typing import TypeVar
 
 from abc import abstractmethod, ABC
 
@@ -6,21 +6,22 @@ import torch
 from torch.utils.data import Subset, Dataset, ConcatDataset, DataLoader, random_split
 
 from .hparams import DataHparams
+from ..hparams.module import HparamsModule
 
 
 _T = TypeVar("_T")
+H = TypeVar("H", bound=DataHparams)
 
 
-class PyTorchData(ABC):
+class PyTorchData(HparamsModule[H], ABC):
     """This is the base class for all torch datasets. Internally it handles the splitting of the
     dataset into train, validation (and test) sets and makes the datasets and corresponding loaders
     available as properties.
     """
 
-    hparams_schema: Type[DataHparams]
+    def __init__(self, hparams: DataHparams | dict):
+        super().__init__(hparams)
 
-    def __init__(self, thparams: DataHparams):
-        self.thparams = thparams
         self.pre_init()
         self.split = self._configure_split()
 

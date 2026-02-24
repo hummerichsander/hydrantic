@@ -79,7 +79,7 @@ The `Model` class is the base for all Hydrantic models, extending PyTorch Lightn
 
 Each subclass must implement `compute_metrics`, returning a dictionary of metric names to tensors, with `"loss"` used for optimization.
 
-The `hparams_schema` class variable should be a subclass of `ModelHparams`, and typed hyperparameters are accessible via `thparams`.
+Passing the `ModelHparams` type to the parent `Model` class constructor ensures that all hyperparameters are properly initialized, typed, and accessible within the model.
 
 **Example Usage:**
 
@@ -91,16 +91,17 @@ class MyModelHparams(ModelHparams):
     hidden_dim: int = 128
     num_layers: int = 3
 
-class MyModel(Model[MyModelHparams]):
+class MyModel(Model[MyModelHparams]):  # Passing the MyModelHparams type to Model
     """A simple neural network model."""
-    hparams_schema = MyModelHparams
+    def __init__(self, hparams: MyModelHparams):
+        # The superclass Model takes care of validating the hparams and provides a typed version
+        # of the hparams via self.thparams attribute.
+        super().__init__(hparams)
 
-    def __init__(self, thparams: MyModelHparams):
-        super().__init__(thparams)
         # Define model layers here
         self.layers = torch.nn.ModuleList([
-            torch.nn.Linear(thparams.hidden_dim, thparams.hidden_dim)
-            for _ in range(thparams.num_layers)
+            torch.nn.Linear(self.thparams.hidden_dim, self.thparams.hidden_dim)
+            for _ in range(self.thparams.num_layers)
         ])
 
     def forward(self, x: Tensor) -> Tensor:
@@ -221,7 +222,7 @@ model_config:
 
 ## Data
 
-Todo
+Hydrantic does provide a built-in data module
 
 ## Model Training
 

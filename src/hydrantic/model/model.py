@@ -1,4 +1,4 @@
-from typing import Type, Literal, Any, Generic, TypeVar, ClassVar, cast
+from typing import Literal, Any, TypeVar
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -19,45 +19,32 @@ from torch.utils.data import DataLoader
 
 from .hparams import ModelHparams, OptimizerHparams
 from ..utils.utils import import_from_string
+from ..hparams.module import HparamsModule
 
 
 H = TypeVar("H", bound=ModelHparams)
 
 
-class Model(Generic[H], lightning.LightningModule, ABC):
+class Model(HparamsModule[H], lightning.LightningModule, ABC):
     """This is the base class for all models. It uses the LightningModule class from the PyTorch
     Lightning library.
 
-    Subclasses must implement the `compute_metrics` method and define the `hparams_schema`
-    attribute.
+    Subclasses must implement the `compute_metrics` method.
 
     It provides a typed version of the hyperparameters under the `thparams` attribute."""
 
-    hparams_schema: ClassVar[Type[ModelHparams]]
-    thparams: H
     has_logger: bool = True
 
-    def __init__(self, thparams: ModelHparams | dict):
-        super().__init__()
+    def __init__(self, hparams: ModelHparams | dict):
+        # Initialize HparamsModule (handles thparams)
+        HparamsModule.__init__(self, hparams)
 
-        # Validate input
-        if thparams is None:
-            raise TypeError("thparams must not be None")
+        # Initialize LightningModule
+        lightning.LightningModule.__init__(self)
 
-        # If already the desired schema instance, accept it directly
-        if isinstance(thparams, self.hparams_schema):
-            thparams = cast(H, thparams)
-        elif isinstance(thparams, dict):
-            thparams = self.hparams_schema(**thparams)
-        else:
-            raise TypeError(
-                f"thparams must be of type {self.hparams_schema} or dict, got {type(thparams)}"
-            )
+        self.save_hyperparameters(dict(hparams={**self.thparams}))
 
-        self.save_hyperparameters(dict(hparams={**thparams}))
-        self.thparams = cast(H, thparams)
-
-        torch.set_float32_matmul_precision(thparams.matmul_precision)
+        torch.set_float32_matmul_precision(self.thparams.matmul_precision)  # type: ignore
 
     @abstractmethod
     def compute_metrics(self, batch: Any, batch_idx: int) -> dict[str, torch.Tensor]:
