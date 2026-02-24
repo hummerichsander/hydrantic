@@ -10,14 +10,46 @@ class HparamsModule(Generic[H]):
     """This is the base class for all modules that carry hparams."""
 
     thparams: H
+    hparams_schema: Type[Hparams]
+
+    def __init_subclass__(cls, **kwargs):
+        """Automatically set hparams_schema class attribute when subclass is created."""
+        super().__init_subclass__(**kwargs)
+
+        # Skip if already set (legacy compatibility)
+        if "hparams_schema" in cls.__dict__:
+            return
+
+        # Try to infer from generic type parameter
+        if hasattr(cls, "__orig_bases__"):
+            for base in cls.__orig_bases__:  # type: ignore
+                if hasattr(base, "__origin__"):
+                    origin = base.__origin__
+                    # Check if this base is HparamsModule or a subclass of it
+                    if origin is HparamsModule or (
+                        isinstance(origin, type) and issubclass(origin, HparamsModule)
+                    ):
+                        args = get_args(base)
+                        if args:
+                            schema = args[0]
+                            # Check if the type parameter is still the generic TypeVar
+                            if not isinstance(schema, TypeVar):
+                                cls.hparams_schema = schema
+                                return
 
     def __init__(self, hparams: Hparams | dict):
         # Validate input
         if hparams is None:
             raise TypeError("thparams must not be None")
 
-        # Infer the hparams schema from the generic type parameter
-        hparams_schema = self._get_hparams_schema()
+        # Get the hparams schema (now a class attribute set by __init_subclass__)
+        if not hasattr(self.__class__, "hparams_schema"):
+            raise TypeError(
+                f"{self.__class__.__name__} must specify a type parameter when inheriting from HparamsModule. "
+                f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
+            )
+
+        hparams_schema = self.__class__.hparams_schema
 
         # If already the desired schema instance, accept it directly
         if isinstance(hparams, hparams_schema):
@@ -30,40 +62,3 @@ class HparamsModule(Generic[H]):
             )
 
         self.thparams = hparams
-
-    def _get_hparams_schema(self) -> Type[Hparams]:
-        """Extract the hparams schema from the generic type parameter H.
-
-        :return: The hparams schema class."""
-
-        for base in self.__class__.__orig_bases__:  # type: ignore
-            if hasattr(base, "__origin__"):
-                origin = base.__origin__
-                if origin is HparamsModule or (
-                    isinstance(origin, type) and issubclass(origin, HparamsModule)
-                ):
-                    args = get_args(base)
-                    if args:
-                        schema = args[0]
-                        # Check if the type parameter is still the generic TypeVar
-                        if isinstance(schema, TypeVar):
-                            raise TypeError(
-                                f"{self.__class__.__name__} must specify a concrete type parameter when inheriting from HparamsModule. "
-                                f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
-                            )
-                        return schema
-                    else:
-                        raise TypeError(
-                            f"{self.__class__.__name__} must specify a type parameter when inheriting from HparamsModule. "
-                            f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
-                        )
-        raise TypeError(
-            f"Could not infer hparams schema from generic type parameter for {self.__class__.__name__}. "
-            f"Make sure {self.__class__.__name__} inherits from HparamsModule with a type parameter. "
-            f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
-        )
-
-    @property
-    def hparams_schema(self) -> Type[Hparams]:
-        """Returns the `hparams_schema` attribute for legacy."""
-        return self._get_hparams_schema()
