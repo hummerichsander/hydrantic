@@ -1,6 +1,5 @@
 import pytest
-import torch
-from torch.utils.data import Dataset, TensorDataset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from ..data.data import PyTorchData
 from ..data.hparams import DataHparams, DataLoaderHparams

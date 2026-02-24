@@ -1,6 +1,3 @@
-import pytest
-import random
-
 from ..data.hparams import DataHparams, DataLoaderHparams
 
 
@@ -84,13 +81,13 @@ class TestDataHparams:
         """Test two-way split configuration."""
         hparams = DataHparams(split=(0.8, 0.2))
         assert len(hparams.split) == 2
-        assert sum(hparams.split) == 1.0
+        assert abs(sum(hparams.split) - 1.0) < 1e-9
 
     def test_split_three_way(self):
         """Test three-way split configuration."""
         hparams = DataHparams(split=(0.7, 0.2, 0.1))
         assert len(hparams.split) == 3
-        assert sum(hparams.split) == 1.0
+        assert abs(sum(hparams.split) - 1.0) < 1e-9
 
     def test_seed_randomness(self):
         """Test that default seeds are random."""

@@ -117,8 +117,8 @@ class PyTorchData(HparamsModule[H], ABC):
 
         :return: The train, validation and test sets."""
 
-        if sum(dataset_split) != 1:
-            raise ValueError("dataset_split must sum to 1")
+        if not abs(sum(dataset_split) - 1.0) < 1e-9:
+            raise ValueError(f"dataset_split must sum to 1, got {sum(dataset_split)}")
 
         with torch.random.fork_rng():
             torch.manual_seed(dataset_split_seed)

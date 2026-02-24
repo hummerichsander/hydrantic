@@ -125,9 +125,7 @@ def mock_pytorch_data(sample_tensor_dataset: Dataset) -> type[PyTorchData]:
     :param sample_tensor_dataset: Sample dataset fixture.
     :return: MockPyTorchData class."""
 
-    class MockPyTorchData(PyTorchData):
-        hparams_schema = DataHparams
-
+    class MockPyTorchData(PyTorchData[DataHparams]):
         def __init__(self, thparams: DataHparams, dataset: Dataset):
             self._dataset = dataset
             super().__init__(thparams)
@@ -211,9 +209,7 @@ def mock_model() -> type[Model]:
 
     :return: MockModel class."""
 
-    class MockModel(Model):
-        hparams_schema = ModelHparams
-
+    class MockModel(Model[ModelHparams]):
         def __init__(self, thparams: ModelHparams):
             super().__init__(thparams)
             self.layer = torch.nn.Linear(10, 2)
