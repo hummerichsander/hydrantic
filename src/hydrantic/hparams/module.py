@@ -44,9 +44,23 @@ class HparamsModule(Generic[H]):
                 ):
                     args = get_args(base)
                     if args:
-                        return args[0]
+                        schema = args[0]
+                        # Check if the type parameter is still the generic TypeVar
+                        if isinstance(schema, TypeVar):
+                            raise TypeError(
+                                f"{self.__class__.__name__} must specify a concrete type parameter when inheriting from HparamsModule. "
+                                f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
+                            )
+                        return schema
+                    else:
+                        raise TypeError(
+                            f"{self.__class__.__name__} must specify a type parameter when inheriting from HparamsModule. "
+                            f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
+                        )
         raise TypeError(
-            f"Could not infer hparams schema from generic type parameter for {self.__class__.__name__}"
+            f"Could not infer hparams schema from generic type parameter for {self.__class__.__name__}. "
+            f"Make sure {self.__class__.__name__} inherits from HparamsModule with a type parameter. "
+            f"Example: class {self.__class__.__name__}(HparamsModule[YourHparamsClass])"
         )
 
     @property
