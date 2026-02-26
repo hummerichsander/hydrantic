@@ -50,7 +50,8 @@ class TestSchedulerHparams:
     def test_custom_initialization(self):
         """Test custom SchedulerHparams values."""
         hparams = SchedulerHparams(
-            module_name="torch.optim.lr_scheduler.StepLR", kwargs={"step_size": 5, "gamma": 0.5}
+            module_name="torch.optim.lr_scheduler.StepLR",
+            kwargs={"step_size": 5, "gamma": 0.5},
         )
         assert hparams.module_name == "torch.optim.lr_scheduler.StepLR"
         assert hparams.kwargs["step_size"] == 5
@@ -59,7 +60,8 @@ class TestSchedulerHparams:
     def test_serialization(self):
         """Test SchedulerHparams serialization."""
         hparams = SchedulerHparams(
-            module_name="torch.optim.lr_scheduler.CosineAnnealingLR", kwargs={"T_max": 100}
+            module_name="torch.optim.lr_scheduler.CosineAnnealingLR",
+            kwargs={"T_max": 100},
         )
         hparams_dict = hparams.model_dump()
 

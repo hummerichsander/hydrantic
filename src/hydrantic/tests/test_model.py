@@ -1,7 +1,11 @@
 import pytest
 import torch
 from torch.utils.data import DataLoader, Subset
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
+from lightning.pytorch.callbacks import (
+    ModelCheckpoint,
+    EarlyStopping,
+    LearningRateMonitor,
+)
 
 from ..model.model import Model
 from ..model.hparams import ModelHparams, OptimizerHparams, SchedulerHparams

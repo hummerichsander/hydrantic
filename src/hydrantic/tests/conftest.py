@@ -150,7 +150,8 @@ def scheduler_hparams() -> SchedulerHparams:
 
     :return: SchedulerHparams instance."""
     return SchedulerHparams(
-        module_name="torch.optim.lr_scheduler.StepLR", kwargs={"step_size": 10, "gamma": 0.1}
+        module_name="torch.optim.lr_scheduler.StepLR",
+        kwargs={"step_size": 10, "gamma": 0.1},
     )
 
 

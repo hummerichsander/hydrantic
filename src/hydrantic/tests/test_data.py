@@ -59,7 +59,9 @@ class TestPyTorchDataSplitting:
 
         :param sample_tensor_dataset: Sample dataset fixture."""
         splits = PyTorchData.split_dataset(
-            dataset=sample_tensor_dataset, dataset_split=(0.7, 0.2, 0.1), dataset_split_seed=42
+            dataset=sample_tensor_dataset,
+            dataset_split=(0.7, 0.2, 0.1),
+            dataset_split_seed=42,
         )
 
         assert len(splits) == 3
@@ -72,7 +74,9 @@ class TestPyTorchDataSplitting:
 
         :param sample_tensor_dataset: Sample dataset fixture."""
         splits = PyTorchData.split_dataset(
-            dataset=sample_tensor_dataset, dataset_split=(0.8, 0.2), dataset_split_seed=123
+            dataset=sample_tensor_dataset,
+            dataset_split=(0.8, 0.2),
+            dataset_split_seed=123,
         )
 
         assert len(splits) == 2
@@ -84,10 +88,14 @@ class TestPyTorchDataSplitting:
 
         :param sample_tensor_dataset: Sample dataset fixture."""
         splits1 = PyTorchData.split_dataset(
-            dataset=sample_tensor_dataset, dataset_split=(0.7, 0.3), dataset_split_seed=42
+            dataset=sample_tensor_dataset,
+            dataset_split=(0.7, 0.3),
+            dataset_split_seed=42,
         )
         splits2 = PyTorchData.split_dataset(
-            dataset=sample_tensor_dataset, dataset_split=(0.7, 0.3), dataset_split_seed=42
+            dataset=sample_tensor_dataset,
+            dataset_split=(0.7, 0.3),
+            dataset_split_seed=42,
         )
 
         # Check that indices are the same
@@ -99,10 +107,14 @@ class TestPyTorchDataSplitting:
 
         :param sample_tensor_dataset: Sample dataset fixture."""
         splits1 = PyTorchData.split_dataset(
-            dataset=sample_tensor_dataset, dataset_split=(0.7, 0.3), dataset_split_seed=42
+            dataset=sample_tensor_dataset,
+            dataset_split=(0.7, 0.3),
+            dataset_split_seed=42,
         )
         splits2 = PyTorchData.split_dataset(
-            dataset=sample_tensor_dataset, dataset_split=(0.7, 0.3), dataset_split_seed=999
+            dataset=sample_tensor_dataset,
+            dataset_split=(0.7, 0.3),
+            dataset_split_seed=999,
         )
 
         assert splits1[0].indices != splits2[0].indices
@@ -113,7 +125,9 @@ class TestPyTorchDataSplitting:
         :param sample_tensor_dataset: Sample dataset fixture."""
         with pytest.raises(ValueError, match="must sum to 1"):
             PyTorchData.split_dataset(
-                dataset=sample_tensor_dataset, dataset_split=(0.5, 0.3), dataset_split_seed=42
+                dataset=sample_tensor_dataset,
+                dataset_split=(0.5, 0.3),
+                dataset_split_seed=42,
             )
 
 
@@ -200,7 +214,9 @@ class TestPyTorchDataLoaders:
         :param mock_pytorch_data: Mock PyTorchData class fixture.
         :param sample_tensor_dataset: Sample dataset fixture."""
         hparams = DataHparams(
-            loader=DataLoaderHparams(batch_size=10, shuffle=False), seed=42, split=(0.8, 0.2)
+            loader=DataLoaderHparams(batch_size=10, shuffle=False),
+            seed=42,
+            split=(0.8, 0.2),
         )
         data = mock_pytorch_data(hparams, sample_tensor_dataset)
 
@@ -217,7 +233,9 @@ class TestPyTorchDataLoaders:
         :param mock_pytorch_data: Mock PyTorchData class fixture.
         :param sample_tensor_dataset: Sample dataset fixture."""
         hparams = DataHparams(
-            loader=DataLoaderHparams(batch_size=15, drop_last=True), seed=42, split=(0.8, 0.2)
+            loader=DataLoaderHparams(batch_size=15, drop_last=True),
+            seed=42,
+            split=(0.8, 0.2),
         )
         data = mock_pytorch_data(hparams, sample_tensor_dataset)
 
@@ -230,7 +248,9 @@ class TestPyTorchDataLoaders:
         :param mock_pytorch_data: Mock PyTorchData class fixture.
         :param sample_tensor_dataset: Sample dataset fixture."""
         hparams = DataHparams(
-            loader=DataLoaderHparams(batch_size=10, shuffle=True), seed=42, split=(0.8, 0.2)
+            loader=DataLoaderHparams(batch_size=10, shuffle=True),
+            seed=42,
+            split=(0.8, 0.2),
         )
         data = mock_pytorch_data(hparams, sample_tensor_dataset)
 
