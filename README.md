@@ -2,7 +2,8 @@
 
 ![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)
 ![Tests](https://github.com/hummerichsander/hydrantic/actions/workflows/pytest.yml/badge.svg)
-[![codecov](https://codecov.io/gh/hummerichsander/hydrantic/branch/public/graph/badge.svg)](https://codecov.io/gh/hummerichsander/hydrantic)
+[![codecov](https://codecov.io/gh/hummerichsander/hydrantic/branch/main/graph/badge.svg)](https://codecov.io/gh/hummerichsander/hydrantic)
+[![Documentation](https://img.shields.io/badge/docs-github%20pages-blue)](https://hummerichsander.github.io/hydrantic/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
