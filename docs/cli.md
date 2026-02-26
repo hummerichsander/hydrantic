@@ -38,7 +38,7 @@ In this section you can specify hydra-specific settings, such as the output dire
 
 ## Fitting your model via the CLI
 
-Training from a configuration file `config.yaml` in the configuration directory specified under `HYDRA_CONFIG_PATH` can be started using the following command:
+Training from a configuration file `your_config.yaml` in the configuration directory specified under `HYDRA_CONFIG_PATH` can be started using the following command:
 
 ```bash
 python -m hydrantic.cli.fit --config-name your_config
