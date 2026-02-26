@@ -25,6 +25,11 @@ dev = [
     "ruff>=0.1.0",
 ]
 
+[project.scripts]
+"hydrantic.cli" = "hydrantic.cli.main:main"
+"hydrantic.cli.fit" = "hydrantic.cli.fit:main"
+"hydrantic.cli.profile" = "hydrantic.cli.profile:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

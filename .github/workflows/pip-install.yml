@@ -31,4 +31,4 @@ jobs:
 
       - name: Test CLI availability
         run: |
-          hydrantic --help
+          hydrantic.cli --help

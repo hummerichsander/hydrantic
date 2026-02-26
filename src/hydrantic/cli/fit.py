@@ -34,7 +34,18 @@ class RunConfig(OmegaConf):
 
 @hydra.main(version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"]).as_posix()))
 def main(cfg: RunConfig) -> None:
-    """Launch a model from a config file."""
+    """Train a model using Hydra configuration.
+
+    This command trains a PyTorch Lightning model with the specified configuration.
+    It supports model checkpointing, Weights & Biases logging, and resuming from checkpoints.
+
+    Usage:
+        hydrantic.cli.fit config_name=my_config
+        hydrantic.cli.fit config_name=my_config model_config.learning_rate=0.001
+
+    Environment Variables:
+        HYDRA_CONFIG_PATH: Path to directory containing Hydra config files
+    """
     base_dir = Path(hydra.utils.get_original_cwd())
     sys.path.append(str(base_dir))
 

@@ -35,7 +35,21 @@ class ProfileConfig(OmegaConf):
 
 @hydra.main(version_base=None, config_path=(Path(os.environ["HYDRA_CONFIG_PATH"]).as_posix()))
 def main(cfg: ProfileConfig) -> None:
-    """Profile model training from a config file using PyTorch Lightning profiler."""
+    """Profile model training performance using PyTorch Lightning profiler.
+
+    This command runs a single training epoch to analyze performance bottlenecks.
+    It generates a detailed profile report showing time spent in each component.
+
+    Usage:
+        hydrantic.cli.profile config_name=my_config
+        hydrantic.cli.profile config_name=my_config model_config.batch_size=32
+
+    Environment Variables:
+        HYDRA_CONFIG_PATH: Path to directory containing Hydra config files
+
+    Output:
+        Creates profile.txt in the output directory with detailed timing information.
+    """
     base_dir = Path(hydra.utils.get_original_cwd())
     sys.path.append(str(base_dir))
 
