@@ -8,8 +8,9 @@ jobs:
   check-pip-install:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout code
@@ -23,12 +24,85 @@ jobs:
       - name: Install package via pip
         run: |
           pip install --upgrade pip
-          pip install .
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu .
 
       - name: Verify installation
-        run: |
-          python -c "import hydrantic; print(f'Successfully imported hydrantic {hydrantic.__version__}')"
+        run: python -c "import hydrantic; print(f'Successfully imported hydrantic {hydrantic.__version__}')"
+
+      - name: Verify wandb is optional
+        run: python -c "import wandb" && exit 1 || echo "wandb correctly absent"
 
       - name: Test CLI availability
         run: |
-          hydrantic.cli --help
+          hydrantic --help
+          hydrantic --version
+          python -m hydrantic --help
+
+      - name: Verify the shipped config groups are packaged
+        run: |
+          python - <<'PY'
+          from importlib.resources import files
+
+          root = files("hydrantic.conf")
+          for group in ("trainer", "logger", "callbacks", "experiment"):
+              names = sorted(f.name for f in (root / group).iterdir() if f.name.endswith(".yaml"))
+              assert names, f"no YAML shipped for {group!r}"
+              print(group, names)
+          PY
+
+  cli-end-to-end:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package via pip
+        run: |
+          pip install --upgrade pip
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu .
+
+      - name: Reject a broken configuration
+        working-directory: examples
+        run: |
+          if hydrantic check --config-dir conf --config-name train ++model.hiden_dim=1; then
+            echo "check should have failed on a misspelled hyperparameter"
+            exit 1
+          fi
+
+      - name: Accept the example configuration
+        working-directory: examples
+        run: hydrantic check --config-dir conf --config-name train
+
+      - name: Fit
+        working-directory: examples
+        run: hydrantic fit --config-dir conf --config-name train trainer.fast_dev_run=true
+
+      - name: Fit, then test from the checkpoint
+        working-directory: examples
+        run: |
+          hydrantic fit --config-dir conf --config-name train \
+            trainer.max_epochs=1 data.num_samples=256 hydra.run.dir=run
+          test -f run/checkpoints/last.ckpt
+          test -f run/metrics.csv
+          hydrantic test --config-dir conf --config-name train \
+            ckpt_path="$PWD/run/checkpoints/last.ckpt" hydra.run.dir=run-test
+
+      - name: Sweep
+        working-directory: examples
+        run: |
+          hydrantic fit --config-dir conf --config-name train -m \
+            trainer.fast_dev_run=true model.optimizer.lr=1e-3,1e-4
+
+      - name: Profile
+        working-directory: examples
+        run: |
+          hydrantic fit --config-dir conf --config-name train \
+            +experiment=profile hydra.run.dir=run-profile
+          test -f run-profile/fit-profile.txt
+
+      - name: Run the inline example
+        working-directory: examples
+        run: python quickstart.py

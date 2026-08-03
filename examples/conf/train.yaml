@@ -1,0 +1,85 @@
+# A complete hydrantic run configuration.
+#
+#   hydrantic check --config-dir conf --config-name train
+#   hydrantic fit   --config-dir conf --config-name train
+#
+# Every mapping with a `_target_` key is imported and called with the remaining keys as
+# keyword arguments. `hydrantic check` verifies each one against the real signature.
+
+defaults:
+  - _self_
+  - trainer: default # default | debug
+  - logger: csv # csv | tensorboard | wandb | none, or a list: [csv, wandb]
+  - callbacks: default # default | early_stopping | none, or [default, early_stopping]
+
+hydra:
+  # Makes the groups selected above resolvable. Only honored in the primary config.
+  searchpath:
+    - pkg://hydrantic.conf
+
+  job:
+    name: quickstart
+    chdir: false
+    config:
+      override_dirname:
+        exclude_keys: [stage, ckpt_path]
+
+  # Inside this `hydra:` block use plain `${hydra.x.y}` interpolation.
+  # In the task config below use the resolver form `${hydra:x.y}`.
+  run:
+    dir: lightning_logs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: lightning_logs/${hydra.job.name}
+    subdir: ${hydra.job.override_dirname}
+
+# --- run control --------------------------------------------------------------
+
+seed: 42 # null disables lightning.seed_everything
+ckpt_path: null # a path to a .ckpt, or "last" / "best"
+matmul_precision: highest # highest | high | medium
+optimized_metric: null # e.g. validation/loss, returned to Hydra sweepers
+
+# --- model --------------------------------------------------------------------
+
+model:
+  _target_: quickstart.Classifier
+
+  input_dim: 16
+  hidden_dim: 64
+  output_dim: 3
+  dropout: 0.1
+
+  optimizer:
+    _target_: torch.optim.AdamW
+    lr: 1e-3
+    weight_decay: 0.01
+
+  # Short form. For a scheduler that needs Lightning's extras, nest it:
+  #   scheduler:
+  #     scheduler:
+  #       _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  #       mode: min
+  #     monitor: validation/loss
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ExponentialLR
+    gamma: 0.99
+
+# --- data ---------------------------------------------------------------------
+
+data:
+  _target_: quickstart.BlobsData
+
+  num_samples: 2048
+  input_dim: ${model.input_dim}
+  num_classes: ${model.output_dim}
+
+  split: [0.8, 0.1, 0.1]
+  seed: ${seed}
+
+  # `loader` applies to every stage; the per-stage blocks override it. Shuffling is on for
+  # train and off elsewhere unless a stage block says otherwise.
+  loader:
+    batch_size: 64
+    num_workers: 0
+  val_loader:
+    batch_size: 128

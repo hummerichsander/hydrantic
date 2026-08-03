@@ -1,18 +1,28 @@
-# Welcome to hydrantic's documentation!
+# hydrantic
 
-Hydrantic is a wrapper for [pytorch-lightning](https://lightning.ai/docs/pytorch/stable/)'s `LightningModule`, implementing some default training and validation steps.
+Typed, Hydra-configurable [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/)
+training.
 
-Using [pydantic](https://docs.pydantic.dev/latest/)'s well-engineered schema definition and validation mechanisms, hydrantic offers an easy and typed hyperparameter configuration system.
+hydrantic is a thin layer over Lightning, [Hydra](https://hydra.cc/docs/intro/) and
+[pydantic](https://docs.pydantic.dev/latest/). It gives you
 
-Last, hydrantic enables straight forward command line interface access to model configuration and fitting using [hydra](https://hydra.cc/docs/intro/)'s configuration parsing and overwriting logic. Furthermore, it sets up [weights & biases](https://docs.wandb.ai/) for model logging and checkpointing.
+- **a CLI** — `hydrantic fit|validate|test|predict`, driven by Hydra configs, with multirun and
+  sweeps for free;
+- **an inline API** — `model.fit_inline(data)` for notebooks and smoke tests;
+- **typed hyperparameters** — one pydantic schema per model and datamodule, so `self.thparams.`
+  autocompletes and a bad config fails immediately;
+- **configuration checking** — every `_target_` in the config is imported and matched against
+  the real signature *before* the run starts, so a typo costs a second, not an hour.
 
-### Overview
+You write ordinary Lightning: your own `forward`, your own `training_step`. hydrantic does not
+wrap or replace anything Lightning already provides.
 
 ```{toctree}
 :maxdepth: 1
 
 installation
 getting_started
+configuration
 cli
-modules
+api
 ```

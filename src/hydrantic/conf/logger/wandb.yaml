@@ -1,0 +1,9 @@
+# Requires the `wandb` extra: pip install "hydrantic[wandb]"
+wandb:
+  _target_: lightning.pytorch.loggers.WandbLogger
+  project: ${oc.env:WANDB_PROJECT,hydrantic}
+  name: ${hydra:job.name}
+  save_dir: ${hydra:runtime.output_dir}
+  offline: false
+  log_model: false
+  tags: []

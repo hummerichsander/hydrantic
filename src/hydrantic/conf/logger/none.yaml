@@ -1,0 +1,2 @@
+# An empty logger group; Trainer(logger=[]) disables logging.
+{}

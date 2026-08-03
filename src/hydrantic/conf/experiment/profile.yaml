@@ -1,0 +1,16 @@
+# @package _global_
+#
+# Profiles a single training step: hydrantic fit ... +experiment=profile
+defaults:
+  - override /logger: none
+  - override /callbacks: none
+
+trainer:
+  max_epochs: 1
+  limit_train_batches: 1
+  limit_val_batches: 1
+  enable_checkpointing: false
+  profiler:
+    _target_: lightning.pytorch.profilers.SimpleProfiler
+    dirpath: ${hydra:runtime.output_dir}
+    filename: profile

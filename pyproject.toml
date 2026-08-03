@@ -1,46 +1,102 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydrantic"
-description = """
-Hydrantic ...
-"""
+version = "0.1.0"
+description = "Typed, Hydra-configurable PyTorch Lightning training: pydantic hyperparameter schemas plus a `_target_`-driven CLI."
 readme = "README.md"
-version = "0.0.2"
-requires-python = ">= 3.8"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Sander Hummerich", email = "hummerich@thphys.uni-heidelberg.de" },
+]
+keywords = ["pytorch", "lightning", "hydra", "pydantic", "configuration", "deep-learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
 dependencies = [
-    "hydra-core~=1.3.2",
-    "pydantic~=2.10.3",
-    "torch>=2.0.0",
-    "lightning~=2.4.0",
-    "wandb~=0.19.1",
+    "hydra-core>=1.3.2,<1.4",
+    "lightning>=2.5,<3",
+    "omegaconf>=2.3,<2.4",
+    "pydantic>=2.7,<3",
+    "torch>=2.1",
+    "typing-extensions>=4.5",
 ]
 
 [project.optional-dependencies]
+wandb = ["wandb>=0.17,<1"]
+tensorboard = ["tensorboard>=2.14"]
+rich = ["rich>=13.0"]
+all = ["hydrantic[wandb,tensorboard,rich]"]
+docs = ["sphinx>=7.2", "myst-parser>=2.0", "sphinx-rtd-theme>=2.0"]
 dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "ruff>=0.1.0",
+    "hydrantic[tensorboard,rich]",
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.6",
 ]
 
+[project.urls]
+Homepage = "https://github.com/hummerichsander/hydrantic"
+Documentation = "https://hummerichsander.github.io/hydrantic/"
+Repository = "https://github.com/hummerichsander/hydrantic"
+Issues = "https://github.com/hummerichsander/hydrantic/issues"
+Changelog = "https://github.com/hummerichsander/hydrantic/blob/main/CHANGELOG.md"
+
 [project.scripts]
-"hydrantic.cli" = "hydrantic.cli.main:main"
-"hydrantic.cli.fit" = "hydrantic.cli.fit:main"
-"hydrantic.cli.profile" = "hydrantic.cli.profile:main"
+hydrantic = "hydrantic.cli.main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["hydrantic*"]
+
+[tool.setuptools.package-data]
+"hydrantic" = ["py.typed"]
+"hydrantic.conf" = ["*.yaml", "**/*.yaml"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+addopts = ["-ra", "--strict-markers", "--strict-config"]
+markers = [
+    "slow: tests that train for more than a few seconds",
+    "gpu: tests that require a CUDA device",
+]
+filterwarnings = [
+    "error::DeprecationWarning:hydrantic.*",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["hydrantic"]
+
+[tool.coverage.paths]
+source = ["src/hydrantic", "*/site-packages/hydrantic"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
 
 [tool.ruff]
 line-length = 100
+target-version = "py310"
+extend-exclude = ["tests", ".venv", "docs/_build", "lightning_logs", "outputs", "multirun"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W"]
-ignore = []
-
+select = ["E", "F", "I", "N", "W", "UP", "B"]
+# N812: `from torch.nn import functional as F` is the universal PyTorch spelling.
+ignore = ["N812"]

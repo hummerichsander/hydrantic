@@ -1,128 +1,118 @@
 # Getting started
 
-This section will guide you through setting up your first model and running it in the following four steps
+A complete project is two classes and their two schemas. The runnable version of everything
+below is [`examples/quickstart.py`](https://github.com/hummerichsander/hydrantic/blob/main/examples/quickstart.py).
 
-1. Defining your {class}`hydrantic.model.Model` and {class}`hydrantic.model.ModelHparams` class.
-2. Defining a {class}`hydrantic.data.Data` and {class}`hydrantic.data.DataHparams` class.
-3. Instantiating the model and data classes with their respective hyperparameters.
-4. Fitting the model to the data.
+## A model
 
-### Defining your model
-
-To define a model in hydrantic, we first have to define a hyperparameter class that inherits from {class}`hydrantic.model.ModelHparams` and defines all hyperparameters and their respective types required for instantiating the Model.
+Declare the hyperparameters as a pydantic schema, then bind it by parametrising
+{class}`hydrantic.model.Model`. `self.thparams` is that schema, typed and validated.
 
 ```python
-...
-from hydrantic.model import ModelHparams
+from torch import nn
+from torch.nn import functional as F
+
+from hydrantic import Model, ModelHparams
+
 
 class ClassifierHparams(ModelHparams):
-    input_dim: int
-    hidden_dim: int
-    output_dim: int
-```
-
-After the hyperparameter class is implemented, we can define a model class that inherits from {class}`hydrantic.model.Model` and uses the hyperparameter class. Importantly, we must pass the hyperparameter class to the {class}`hydrantic.model.Model` class constructor.
-
-```python
-...
-from hydrantic.model import Model
-
-class Classifier(Model[ClassifierHparams]):  # pass the ClassifierHparams class here
-    def __init__(self, hparams: ClassifierHparams):
-        # initializing the super class is required to handle the hparams validation
-        super().__init__(hparams=hparams)
-
-        # A minimal example
-        self.net = torch.nn.Sequential([
-            torch.nn.Linear(self.thparams.input_dim, self.thparams.hidden_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(self.thparams.hidden_dim, self.thparams.output_dim)
-        ])
+    input_dim: int = 16
+    hidden_dim: int = 64
+    output_dim: int = 3
 
 
-    def compute_metrics(self, batch, batch_idx) -> dict[str, Tensor]:
-        # Define metric computation here
+class Classifier(Model[ClassifierHparams]):
+    def __init__(self, hparams=None, **kwargs):
+        super().__init__(hparams, **kwargs)
+        self.net = nn.Sequential(
+            nn.Linear(self.thparams.input_dim, self.thparams.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.thparams.hidden_dim, self.thparams.output_dim),
+        )
+
+    def forward(self, x):
+        return self.net(x)
+
+    def training_step(self, batch, batch_idx):
         x, y = batch
-        y_hat = self.net(x)
-        loss = torch.nn.functional.mse_loss(y_hat, y)
+        loss = F.cross_entropy(self(x), y)
+        self.log_metrics({"loss": loss}, "training")
+        return loss
 
-        return {"loss": loss}
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        self.log_metrics({"loss": F.cross_entropy(self(x), y)}, "validation")
 ```
 
-The Model class handles the validation of the hyperparameters and their types in the background using pydantics validation mechanism. It provides a typed version of the hyperparameters via its `.thparams` attribute.
+These are ordinary
+[Lightning hooks](https://lightning.ai/docs/pytorch/stable/common/lightning_module.html) —
+hydrantic adds nothing to them. {meth}`~hydrantic.model.Model.log_metrics` is an optional
+helper that prefixes names with the stage, giving `training/loss` and `validation/loss`; those
+are the names the shipped `ModelCheckpoint` config monitors.
 
-The Model must implement the `compute_metrics` method that returns a dictionary of metric names and their corresponding values as torch tensors. The metric that is stored under the _loss_ key is used for optimization.
+The optimizer comes from the hyperparameters, so it is configurable without touching code.
+{class}`~hydrantic.model.ModelHparams` provides `optimizer` and `scheduler`; you never write
+`configure_optimizers` yourself.
 
-### Defining your data
+## A datamodule
 
-Hydrantic offers a basic {class}`hydrantic.data.PyTorchData` class that can be used to define your dataset. It pre-implements some basic features such as random splitting in training, validation and test datasets and configuration of dataloaders for the datasets. Similar as before, it requires a hyperparameter class that inherits from {class}`hydrantic.data.DataHparams` and defines all hyperparameters and their respective types required for instantiating the Data class.
+{class}`hydrantic.data.DataModule` is a
+[LightningDataModule](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) that
+splits one dataset into train/validation/test and builds the dataloaders. Implement
+`get_dataset`:
 
 ```python
-...
-from hydrantic.data import DataHparams
+import torch
+from torch.utils.data import TensorDataset
+
+from hydrantic import DataHparams, DataModule
 
 
-class ClassificationDataHparams(DataHparams):
-    num_samples: int
-    data_dim: int
-    num_classes: int
+class BlobsDataHparams(DataHparams):
+    num_samples: int = 2048
+    input_dim: int = 16
+    num_classes: int = 3
+
+
+class BlobsData(DataModule[BlobsDataHparams]):
+    def get_dataset(self):
+        h = self.thparams
+        generator = torch.Generator().manual_seed(h.seed)
+        labels = torch.randint(h.num_classes, (h.num_samples,), generator=generator)
+        centers = torch.randn(h.num_classes, h.input_dim, generator=generator) * 3.0
+        features = centers[labels] + torch.randn(h.num_samples, h.input_dim, generator=generator)
+        return TensorDataset(features, labels)
 ```
 
-The Data class has to implement the `get_dataset` method that returns a `Dataset` object.
+If your splits already exist separately, override `get_split_datasets` instead. Downloads
+belong in Lightning's `prepare_data`.
+
+`get_dataset` runs in `setup`, which Lightning calls on every rank, so this is DDP-correct
+without further thought. {class}`~hydrantic.data.DataHparams` controls `split`, `seed` and the
+dataloader keyword arguments.
+
+## Running it
+
+Inline, for a notebook or a smoke test:
 
 ```python
-...
-from hydrantic.data import PyTorchData
+model = Classifier(hidden_dim=32)
+data = BlobsData(num_samples=512)
 
-
-class ClassificationData(PyTorchData[ClassificationDataHparams]):
-    def get_dataset(self) -> TensorDataset:
-        X = torch.randn(self.thparams.num_samples, self.thparams.data_dim)
-        y = torch.randint(0, self.thparams.num_classes, (self.thparams.num_samples,))
-        return TensorDataset(X, y)
+trainer = model.fit_inline(data, max_epochs=3, accelerator="cpu")
+print(trainer.callback_metrics["training/loss"])
 ```
 
-The `train`, `test`, and `validation` attributes of the data class contain subsets that are automatically generated by the {class}`hydrantic.data.PyTorchData` class. Splitting can be configured via the hyperparameters available in the {class}`hydrantic.data.DataHparams` class.
+{meth}`~hydrantic.model.Model.fit_inline` accepts a `Dataset`, a `DataLoader` or a
+`LightningDataModule`, forwards any other keyword argument to the `Trainer`, and returns that
+`Trainer`. It changes nothing on the model.
 
-Furthermore, in case loader hyperparameters are specified in the {class}`hydratic.data.hparams.DataHparams` class, the data class will automatically generate dataloaders for each subset and expose them via its `train_loader`, `val_loader`, and `test_loader` attributes.
+For real runs, use the CLI:
 
-### Creating data and model instances
-
-To instantiate the data and model classes, simply create instances of their hyperparameters and pass them to the respective classes.
-
-```python
-data_hparams = ClassificationDataHparams(num_samples=1000, data_dim=10, num_classes=2)
-data = ClassificationData(data_hparams)
-
-model_hparams = ClassifierHparams(input_dim=10, hidden_dim=128, output_dim=2)
-model = Classifier(model_hparams)
+```bash
+cd examples
+hydrantic check --config-dir conf --config-name train
+hydrantic fit   --config-dir conf --config-name train
 ```
 
-As mentioned earlier, we can also specify loader hyperparameters in the `ClassificationDataHparams` class. This allows us to configure the dataloaders for each subset of the data.
-
-```python
-data_hparams = ClassificationDataHparams(
-    num_samples=1000,
-    data_dim=10,
-    num_classes=2,
-    loader=dict(
-        batch_size=46,
-        shuffle=True
-    )
-)
-```
-
-When loader hyperparameters are specified, the loaders for each of the subset will be available via their respective attributes.
-
-### Fitting your model
-
-The {class}`hydrantic.model.Model` class has a simple `fit_fast` method, that allows to quickly fit a model. Since customization capabilities of this method are rather limited, it is recommended to use it only for debugging or simple experiments. For more complex training the {mod}`hydrantic.cli` module should be used. The `fit_fast` method uses the Adam optimizer.
-
-```python
-model.fit_fast(
-    train_loader=data.train_loader,
-    n_epochs=10,
-    lr=1e-3,
-    accelerator="gpu",
-)
-```
+See [Configuration](configuration.md) and [CLI](cli.md).

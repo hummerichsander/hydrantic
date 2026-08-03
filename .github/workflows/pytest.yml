@@ -8,8 +8,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout code
@@ -23,15 +24,31 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install pytest pytest-cov
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -e ".[dev]"
 
       - name: Run pytest with coverage
-        run: |
-          pytest --cov=. --cov-report=xml --cov-report=term
+        run: pytest --cov --cov-report=xml --cov-report=term
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint
+        run: ruff check --output-format=github .
+
+      - name: Check formatting
+        run: ruff format --check .

@@ -1,0 +1,7 @@
+defaults:
+  - default
+
+fast_dev_run: true
+accelerator: cpu
+devices: 1
+enable_checkpointing: false
