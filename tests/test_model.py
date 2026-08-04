@@ -265,7 +265,7 @@ class TestFitInline:
         assert trainer.state.finished
 
     def test_accepts_a_datamodule(self, tiny_model_cls: type[TinyModel], tiny_data_cls) -> None:
-        data = tiny_data_cls(num_samples=32, loader={"batch_size": 8})
+        data = tiny_data_cls(num_samples=32, batch_size=8)
         trainer = tiny_model_cls().fit_inline(data, accelerator="cpu")
         assert "validation/loss" in trainer.callback_metrics
 
@@ -372,7 +372,7 @@ class TestInstantiatedFromHydra:
         from hydrantic.targets import instantiate_module
 
         model = instantiate_module(model_config)
-        data = tiny_data_cls(num_samples=32, loader={"batch_size": 8})
+        data = tiny_data_cls(num_samples=32, batch_size=8)
 
         trainer = model.fit_inline(data, accelerator="cpu")
         assert "training/loss" in trainer.callback_metrics

@@ -3,6 +3,48 @@
 All notable changes to this project are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-08-03
+
+Shrinks the data layer. `DataModule` was carrying a dataloader-configuration mechanism that
+duplicated what a `DataLoader` call already says, and presumed every datamodule splits one
+dataset. It now adds typed hyperparameters to a `LightningDataModule` and nothing else.
+
+### Added
+
+- `SplitHparams` — opt-in schema with `split`, `seed` and a `split_dataset` convenience method,
+  for datamodules that split a single dataset.
+- `LoaderHparams` — opt-in schema with the standard `DataLoader` settings as *typed* fields,
+  plus `loader_kwargs(**overrides)` to hand them to a `DataLoader`. Compose the two:
+  `class MyHparams(SplitHparams, LoaderHparams)`.
+
+### Changed
+
+- `DataModule` is now a `LightningDataModule` with a validated `thparams` and nothing more. Write
+  `setup` and the `*_dataloader` hooks as you would in plain Lightning.
+- `split_dataset` moved from `hydrantic.data` to `hydrantic.utils`. It is still exported from
+  `hydrantic`, so `from hydrantic import split_dataset` is unchanged.
+
+### Removed
+
+- `DataHparams`. `split`/`seed` are a splitting *strategy*, not a property of data — a datamodule
+  loading its validation set from a separate file carried two fields it never read, and both
+  landed in the checkpoint and the logged configuration. Inherit `SplitHparams` if you split.
+- `DataModule.get_dataset`, `get_split_datasets`, `setup`, `train_dataloader`, `val_dataloader`,
+  `test_dataloader` and `_build_dataloader`, plus the `loader` / `train_loader` / `val_loader` /
+  `test_loader` configuration dicts and the two validators that policed them.
+
+### Fixed
+
+- `DataLoader` settings are typed and validated again. The `loader` dicts were `dict[str, Any]`,
+  so `loader: {batch_sze: 64}` passed `extra="forbid"` and only failed inside
+  `DataLoader.__init__` at setup time. Misspellings are now caught at construction.
+- 0.1.0 forced `shuffle=True` on the training dataloader, silently flipping behaviour for
+  projects that ran with `shuffle: False` in 0.0.x — including ones whose models reshuffle their
+  own dataset. `shuffle` is no longer a hydrantic-owned default; you pass it to the `DataLoader`
+  yourself.
+- Dropped a `persistent_workers` validator that duplicated `DataLoader`'s own check and had a
+  hole: shared `num_workers` with a per-stage override could pass validation and still fail.
+
 ## [0.1.0] - 2026-08-03
 
 A breaking release that drops hydrantic's re-implementations of Lightning, Hydra and pydantic

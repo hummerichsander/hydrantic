@@ -5,9 +5,9 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import Dataset, TensorDataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 
-from hydrantic import DataHparams, DataModule, Hparams, Model, ModelHparams
+from hydrantic import DataModule, Hparams, LoaderHparams, Model, ModelHparams, SplitHparams
 
 
 @pytest.fixture
@@ -155,28 +155,45 @@ def tiny_model_cls() -> type[TinyModel]:
     return TinyModel
 
 
-class TinyDataHparams(DataHparams):
+class TinyDataHparams(SplitHparams, LoaderHparams):
     """Hyperparameters of `TinyData`."""
 
     num_samples: int = 100
     input_dim: int = 10
     num_classes: int = 2
+    batch_size: int = 8
 
 
 class TinyData(DataModule[TinyDataHparams]):
-    """A datamodule over a generated tensor dataset."""
+    """A datamodule written the way a user writes one: plain Lightning hooks."""
 
-    #: Incremented on every `get_dataset` call, so tests can assert `setup` caches.
+    #: Incremented on every dataset build, so tests can assert `setup` is guarded.
     build_count = 0
 
-    def get_dataset(self) -> Dataset:
+    def setup(self, stage: str) -> None:
+        if getattr(self, "train", None) is not None:
+            return
+
         type(self).build_count += 1
-        generator = torch.Generator().manual_seed(self.thparams.seed)
-        x = torch.randn(self.thparams.num_samples, self.thparams.input_dim, generator=generator)
-        y = torch.randint(
-            self.thparams.num_classes, (self.thparams.num_samples,), generator=generator
-        )
-        return TensorDataset(x, y)
+        h = self.thparams
+        generator = torch.Generator().manual_seed(h.seed)
+        x = torch.randn(h.num_samples, h.input_dim, generator=generator)
+        y = torch.randint(h.num_classes, (h.num_samples,), generator=generator)
+
+        subsets = h.split_dataset(TensorDataset(x, y))
+        self.train, self.val = subsets[0], subsets[1]
+        self.test = subsets[2] if len(subsets) > 2 else None
+
+    def train_dataloader(self) -> DataLoader:
+        return DataLoader(self.train, **self.thparams.loader_kwargs(shuffle=True))
+
+    def val_dataloader(self) -> DataLoader:
+        return DataLoader(self.val, **self.thparams.loader_kwargs())
+
+    def test_dataloader(self) -> DataLoader | None:
+        if self.test is None:
+            return None
+        return DataLoader(self.test, **self.thparams.loader_kwargs())
 
 
 @pytest.fixture
@@ -215,7 +232,7 @@ def data_config() -> DictConfig:
         {
             "_target_": "conftest.TinyData",
             "num_samples": 100,
-            "loader": {"batch_size": 8},
+            "batch_size": 8,
         }
     )
 

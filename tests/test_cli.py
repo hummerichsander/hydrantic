@@ -335,7 +335,7 @@ class TestCliEndToEnd:
             "train",
             "trainer.max_epochs=1",
             "data.num_samples=256",
-            "data.loader.batch_size=16",
+            "data.batch_size=16",
             f"hydra.run.dir={tmp_path}",
         )
         assert result.returncode == 0, result.stderr

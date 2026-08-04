@@ -1,4 +1,107 @@
-# Migrating from 0.0.x to 0.1.0
+# Migration
+
+- [0.1.0 → 0.2.0](#from-010-to-020) — the data layer only.
+- [0.0.x → 0.1.0](#from-00x-to-010) — the large one.
+
+---
+
+# From 0.1.0 to 0.2.0
+
+Only the data layer changed. Models, the CLI and the configuration scheme are untouched.
+
+`DataModule` is now a `LightningDataModule` with typed hyperparameters and nothing else: no
+`get_dataset`, no `loader` dicts, no generated dataloaders. You write `setup` and the dataloader
+hooks as in plain Lightning, and two opt-in schemas cover the usual settings.
+
+## Config
+
+```yaml
+# 0.1.0
+data:
+  _target_: my_project.MyData
+  split: [0.8, 0.1, 0.1]
+  seed: 42
+  loader: {batch_size: 1024, num_workers: 0}
+  train_loader: {shuffle: false}
+
+# 0.2.0
+data:
+  _target_: my_project.MyData
+  split: [0.8, 0.1, 0.1]
+  seed: 42
+  batch_size: 1024
+  num_workers: 0
+```
+
+`train_loader: {shuffle: false}` disappears because shuffling is no longer something hydrantic
+decides — see the note at the end.
+
+## Code
+
+```python
+# 0.1.0
+class MyDataHparams(DataHparams):
+    path: str
+
+
+class MyData(DataModule[MyDataHparams]):
+    def get_dataset(self):
+        return torch.load(self.thparams.path)
+
+
+# 0.2.0
+class MyDataHparams(SplitHparams, LoaderHparams):
+    path: str
+
+
+class MyData(DataModule[MyDataHparams]):
+    def setup(self, stage):
+        if getattr(self, "train", None) is not None:
+            return  # setup runs once per stage; guard expensive work yourself
+        dataset = torch.load(self.thparams.path)
+        self.train, self.val, self.test = self.thparams.split_dataset(dataset)
+
+    def train_dataloader(self):
+        return DataLoader(self.train, **self.thparams.loader_kwargs(shuffle=True))
+
+    def val_dataloader(self):
+        return DataLoader(self.val, **self.thparams.loader_kwargs())
+
+    def test_dataloader(self):
+        return DataLoader(self.test, **self.thparams.loader_kwargs())
+```
+
+| 0.1.0 | 0.2.0 |
+| --- | --- |
+| `DataHparams` | `SplitHparams` if you split a dataset, `LoaderHparams` for `DataLoader` settings, or plain `Hparams` |
+| `get_dataset()` | build the dataset in `setup(stage)` |
+| `get_split_datasets()` | assign `self.train` / `self.val` / `self.test` in `setup` |
+| `loader: {...}` config dict | typed fields from `LoaderHparams` |
+| `train_loader` / `val_loader` / `test_loader` config dicts | arguments to your own `DataLoader` calls |
+| generated `*_dataloader()` methods | write them; `loader_kwargs()` supplies the settings |
+| `data.train_dataset` / `.val_dataset` / `.test_dataset` | whatever you name them |
+| `from hydrantic.data import split_dataset` | `from hydrantic.utils import split_dataset` (or `from hydrantic import split_dataset`, unchanged) |
+
+Overriding `_build_dataloader` to get a different `DataLoader` class — a `torch_geometric` one,
+say — is no longer needed: just construct it in `train_dataloader`.
+
+## Two behaviour changes to check
+
+**Shuffling.** 0.1.0 forced `shuffle=True` on the training loader, which silently flipped
+behaviour for anything that ran `shuffle: False` under 0.0.x. If your model reshuffles its own
+dataset in `on_train_epoch_end`, pass `shuffle=False` (or simply omit it — `loader_kwargs()` adds
+nothing) rather than relying on a default.
+
+**`setup` is no longer guarded for you.** Lightning calls `setup` once per stage, so a `fit`
+followed by a `test` calls it twice. If building the dataset is expensive, guard it as shown
+above.
+
+`split_dataset` still returns `Subset`s, so code reaching through the split with
+`trainer.train_dataloader.dataset.dataset` keeps working.
+
+---
+
+# From 0.0.x to 0.1.0
 
 0.1.0 is a clean break with no compatibility shims. The changes fall into three groups:
 configuration moves to Hydra's `_target_`, the data class becomes a real `LightningDataModule`,

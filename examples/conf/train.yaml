@@ -73,13 +73,10 @@ data:
   input_dim: ${model.input_dim}
   num_classes: ${model.output_dim}
 
+  # from SplitHparams
   split: [0.8, 0.1, 0.1]
   seed: ${seed}
 
-  # `loader` applies to every stage; the per-stage blocks override it. Shuffling is on for
-  # train and off elsewhere unless a stage block says otherwise.
-  loader:
-    batch_size: 64
-    num_workers: 0
-  val_loader:
-    batch_size: 128
+  # from LoaderHparams
+  batch_size: 64
+  num_workers: 0

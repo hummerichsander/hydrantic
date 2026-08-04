@@ -11,7 +11,7 @@ for a complete file.
 | Key | Meaning |
 | --- | --- |
 | `model` | your {class}`~hydrantic.model.Model`; its remaining keys are the hyperparameter schema |
-| `data` | your {class}`~hydrantic.data.DataModule` |
+| `data` | your {class}`~hydrantic.data.DataModule`; likewise, its remaining keys are its schema |
 | `trainer` | keyword arguments for [`lightning.Trainer`](https://lightning.ai/docs/pytorch/stable/common/trainer.html) |
 | `logger` | a dict of named loggers, converted to a list for the `Trainer` |
 | `callbacks` | a dict of named callbacks, likewise |
@@ -23,7 +23,7 @@ for a complete file.
 Hyperparameters sit directly under `model` and `data`, so overrides are short:
 
 ```bash
-hydrantic fit ... model.hidden_dim=256 model.optimizer.lr=1e-4 data.loader.batch_size=32
+hydrantic fit ... model.hidden_dim=256 model.optimizer.lr=1e-4 data.batch_size=32
 ```
 
 ## Shipped config groups

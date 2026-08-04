@@ -1,24 +1,22 @@
-from collections.abc import Sequence
-from typing import Any, Literal, TypeVar
+from typing import Any, TypeVar
 
 import lightning
-import torch
-from pydantic import field_validator, model_validator
-from torch.utils.data import DataLoader, Dataset, IterableDataset, Subset, random_split
+from pydantic import field_validator
+from torch.utils.data import Dataset, Subset
 
 from hydrantic.hparams import Hparams, HparamsModule
+from hydrantic.utils import split_dataset
 
 
-class DataHparams(Hparams):
-    """Base hyperparameters for `DataModule`."""
+class SplitHparams(Hparams):
+    """Opt-in hyperparameters for splitting one dataset into train/validation/test.
+
+    Inherit this instead of `Hparams` when your datamodule splits a single dataset. Datamodules
+    that load their splits from separate files should not: they would carry two fields they
+    never read, and both would land in the checkpoint and the logged configuration."""
 
     split: tuple[float, float] | tuple[float, float, float] = (0.8, 0.1, 0.1)
     seed: int = 42
-
-    loader: dict[str, Any] = {"batch_size": 64}
-    train_loader: dict[str, Any] = {}
-    val_loader: dict[str, Any] = {}
-    test_loader: dict[str, Any] = {}
 
     @field_validator("split")
     @classmethod
@@ -29,145 +27,77 @@ class DataHparams(Hparams):
             raise ValueError(f"split fractions must be non-negative, got {value}")
         return value
 
-    @field_validator("loader")
-    @classmethod
-    def _no_shuffle_in_shared_loader(cls, value: dict[str, Any]) -> dict[str, Any]:
-        if "shuffle" in value:
-            raise ValueError(
-                "`shuffle` is stage specific: set it in `train_loader`, `val_loader` or "
-                "`test_loader`, not in the shared `loader` block"
-            )
-        return value
+    def split_dataset(self, dataset: Dataset) -> list[Subset]:
+        """Splits a dataset using these fractions and seed.
 
-    @model_validator(mode="after")
-    def _persistent_workers_need_workers(self) -> "DataHparams":
-        for name in ("loader", "train_loader", "val_loader", "test_loader"):
-            kwargs = getattr(self, name)
-            if not kwargs.get("persistent_workers"):
-                continue
-            workers = kwargs.get("num_workers", self.loader.get("num_workers", 0))
-            if not workers:
-                raise ValueError(f"{name}.persistent_workers=True requires num_workers > 0")
-        return self
+        :param dataset: The dataset to split.
+        :return: One subset per entry in `split`."""
+
+        return split_dataset(dataset, self.split, self.seed)
 
 
-D = TypeVar("D", bound=DataHparams)
+class LoaderHparams(Hparams):
+    """Opt-in hyperparameters for a PyTorch `DataLoader`.
+
+    Inherit this to get the settings almost every datamodule needs as typed, validated fields,
+    then hand them to a `DataLoader` with `loader_kwargs`. Anything not covered here goes in
+    your own schema and straight into your `DataLoader` call."""
+
+    batch_size: int = 64
+    num_workers: int = 0
+    pin_memory: bool = False
+    persistent_workers: bool = False
+    drop_last: bool = False
+
+    def loader_kwargs(self, **overrides: Any) -> dict[str, Any]:
+        """Returns these settings as `DataLoader` keyword arguments.
+
+        `shuffle` is deliberately not a field: it differs per stage, and a baked-in default is
+        how a training loader silently starts or stops shuffling. Pass it explicitly::
+
+            DataLoader(self.train, **self.thparams.loader_kwargs(shuffle=True))
+
+        :param overrides: Extra or replacement keyword arguments.
+        :return: Keyword arguments for `DataLoader`."""
+
+        # Field list comes from this class, not the instance, so a subclass's own
+        # hyperparameters are not smuggled into the DataLoader call.
+        settings = {name: getattr(self, name) for name in LoaderHparams.model_fields}
+        return settings | overrides
 
 
-class DataModule(HparamsModule[D], lightning.LightningDataModule):
-    """A `LightningDataModule` configured by a validated `DataHparams` schema.
+H = TypeVar("H", bound=Hparams)
 
-    Implement `get_dataset` to have one dataset split by `thparams.split`, or override
-    `get_split_datasets` when the splits already exist separately. Datasets are built in
-    `setup`, which Lightning calls on every rank once the process group exists; put downloads
-    and other rank-zero work in `prepare_data`."""
 
-    # The model wins the logger; these hyperparameters still go into the checkpoint, and the
-    # hydrantic CLI logs the whole resolved configuration anyway.
+class DataModule(HparamsModule[H], lightning.LightningDataModule):
+    """A `LightningDataModule` with a validated `Hparams` schema on `thparams`.
+
+    That is all it adds. Implement `prepare_data`, `setup` and the `*_dataloader` hooks exactly
+    as you would in plain Lightning. Compose `SplitHparams` and `LoaderHparams` into your schema
+    for the common cases; `hydrantic.split_dataset` does the split.
+
+    Build datasets in `setup`, not `__init__`: Lightning calls it on every rank once the process
+    group exists, and once per stage, so guard the work if it is expensive. Downloads belong in
+    `prepare_data`, which runs on one process per node::
+
+        class MyHparams(SplitHparams, LoaderHparams):
+            path: str
+
+        class MyData(DataModule[MyHparams]):
+            def setup(self, stage):
+                if getattr(self, "train", None) is not None:
+                    return
+                dataset = torch.load(self.thparams.path)
+                self.train, self.val, self.test = self.thparams.split_dataset(dataset)
+
+            def train_dataloader(self):
+                return DataLoader(self.train, **self.thparams.loader_kwargs(shuffle=True))
+
+            def val_dataloader(self):
+                return DataLoader(self.val, **self.thparams.loader_kwargs())
+    """
+
+    # Lightning merges a module's and a datamodule's `hparams_initial` and raises if a shared
+    # key holds different values; both are keyed `hparams`, so the model wins the logger. These
+    # hyperparameters still reach the checkpoint, and the CLI logs the whole resolved config.
     log_hparams_to_logger = False
-
-    def __init__(self, hparams: D | dict[str, Any] | None = None, **kwargs: Any) -> None:
-        """Stores the hyperparameters without touching the data.
-
-        :param hparams: A `DataHparams` instance, or a mapping of field values.
-        :param kwargs: Field values, as an alternative to passing a mapping."""
-
-        super().__init__(hparams, **kwargs)
-
-        self.train_dataset: Dataset | None = None
-        self.val_dataset: Dataset | None = None
-        self.test_dataset: Dataset | None = None
-
-    def get_dataset(self) -> Dataset:
-        """Returns the full dataset, to be split according to `thparams.split`.
-
-        :return: The full dataset."""
-
-        raise NotImplementedError(
-            f"{type(self).__name__} must implement `get_dataset`, or override "
-            f"`get_split_datasets` if the splits already exist separately."
-        )
-
-    def get_split_datasets(self) -> tuple[Dataset, Dataset | None, Dataset | None]:
-        """Returns the train, validation and test datasets.
-
-        By default this splits `get_dataset` by `thparams.split`. Override it when the splits
-        already exist separately, in which case `get_dataset` need not be implemented.
-
-        :return: The train, validation and optional test datasets."""
-
-        subsets = split_dataset(self.get_dataset(), self.thparams.split, self.thparams.seed)
-        return subsets[0], subsets[1], subsets[2] if len(subsets) > 2 else None
-
-    def setup(self, stage: str) -> None:
-        """Builds the datasets. Called by Lightning on every rank.
-
-        :param stage: The stage Lightning is preparing for."""
-
-        if self.train_dataset is None:
-            self.train_dataset, self.val_dataset, self.test_dataset = self.get_split_datasets()
-
-    def train_dataloader(self) -> DataLoader | None:
-        """Returns the training dataloader.
-
-        :return: The dataloader, or None if there is no training split."""
-
-        return self._build_dataloader("train")
-
-    def val_dataloader(self) -> DataLoader | None:
-        """Returns the validation dataloader.
-
-        :return: The dataloader, or None if there is no validation split."""
-
-        return self._build_dataloader("val")
-
-    def test_dataloader(self) -> DataLoader | None:
-        """Returns the test dataloader.
-
-        :return: The dataloader, or None if there is no test split."""
-
-        return self._build_dataloader("test")
-
-    def _build_dataloader(self, stage: Literal["train", "val", "test"]) -> DataLoader | None:
-        """Builds one stage's dataloader from the shared and per-stage loader settings.
-
-        :param stage: The stage to build the dataloader for.
-        :return: The dataloader, or None if the stage has no dataset."""
-
-        if (dataset := getattr(self, f"{stage}_dataset")) is None:
-            return None
-
-        kwargs: dict[str, Any] = {"shuffle": stage == "train"}
-        kwargs |= self.thparams.loader
-        kwargs |= getattr(self.thparams, f"{stage}_loader")
-
-        if isinstance(dataset, IterableDataset):
-            kwargs.pop("shuffle", None)
-
-        return DataLoader(dataset, **kwargs)
-
-
-def split_dataset(
-    dataset: Dataset,
-    split: Sequence[float],
-    seed: int,
-) -> list[Subset]:
-    """Splits a dataset into fractions, reproducibly and independently of the global RNG.
-
-    A local generator is used rather than seeding the global RNG, so the split is identical on
-    every rank no matter how many random numbers were drawn beforehand.
-
-    :param dataset: The dataset to split.
-    :param split: The split fractions, which must sum to 1.
-    :param seed: The seed used for the split.
-    :return: The subsets, in the order of `split`."""
-
-    if abs(sum(split) - 1.0) > 1e-9:
-        raise ValueError(f"split must sum to 1, got {sum(split)}")
-    if isinstance(dataset, IterableDataset):
-        raise TypeError(
-            "Cannot fraction-split an IterableDataset; override `get_split_datasets` instead."
-        )
-
-    generator = torch.Generator().manual_seed(seed)
-    return random_split(dataset, list(split), generator=generator)

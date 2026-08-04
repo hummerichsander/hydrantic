@@ -12,9 +12,9 @@ from typing import Any
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
-from torch.utils.data import Dataset, TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 
-from hydrantic import DataHparams, DataModule, Model, ModelHparams
+from hydrantic import DataModule, LoaderHparams, Model, ModelHparams, SplitHparams
 
 
 class ClassifierHparams(ModelHparams):
@@ -92,8 +92,10 @@ class Classifier(Model[ClassifierHparams]):
         )
 
 
-class BlobsDataHparams(DataHparams):
-    """Hyperparameters of the synthetic blob dataset."""
+class BlobsDataHparams(SplitHparams, LoaderHparams):
+    """Hyperparameters of the synthetic blob dataset.
+
+    `split`/`seed` come from `SplitHparams`, the `DataLoader` settings from `LoaderHparams`."""
 
     num_samples: int = 2048
     input_dim: int = 16
@@ -101,21 +103,39 @@ class BlobsDataHparams(DataHparams):
 
 
 class BlobsData(DataModule[BlobsDataHparams]):
-    """Gaussian blobs, one per class, generated on the fly."""
+    """Gaussian blobs, one per class, generated on the fly.
 
-    def get_dataset(self) -> Dataset:
-        """Builds the full dataset, which `DataModule` then splits.
+    Plain Lightning hooks; `DataModule` only supplies the typed `thparams`."""
 
-        :return: The generated dataset."""
+    def setup(self, stage: str) -> None:
+        """Generates the dataset and splits it.
 
-        generator = torch.Generator().manual_seed(self.thparams.seed)
+        :param stage: The stage Lightning is preparing for."""
+
+        if getattr(self, "train", None) is not None:
+            return  # setup runs once per stage; generate only once
+
         h = self.thparams
+        generator = torch.Generator().manual_seed(h.seed)
 
         labels = torch.randint(h.num_classes, (h.num_samples,), generator=generator)
         centers = torch.randn(h.num_classes, h.input_dim, generator=generator) * 3.0
         features = centers[labels] + torch.randn(h.num_samples, h.input_dim, generator=generator)
 
-        return TensorDataset(features, labels)
+        dataset = TensorDataset(features, labels)
+        self.train, self.val, self.test = h.split_dataset(dataset)
+
+    def train_dataloader(self) -> DataLoader:
+        """:return: The training dataloader."""
+        return DataLoader(self.train, **self.thparams.loader_kwargs(shuffle=True))
+
+    def val_dataloader(self) -> DataLoader:
+        """:return: The validation dataloader."""
+        return DataLoader(self.val, **self.thparams.loader_kwargs())
+
+    def test_dataloader(self) -> DataLoader:
+        """:return: The test dataloader."""
+        return DataLoader(self.test, **self.thparams.loader_kwargs())
 
 
 if __name__ == "__main__":

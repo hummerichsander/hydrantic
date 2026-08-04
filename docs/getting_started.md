@@ -57,39 +57,56 @@ The optimizer comes from the hyperparameters, so it is configurable without touc
 ## A datamodule
 
 {class}`hydrantic.data.DataModule` is a
-[LightningDataModule](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) that
-splits one dataset into train/validation/test and builds the dataloaders. Implement
-`get_dataset`:
+[LightningDataModule](https://lightning.ai/docs/pytorch/stable/data/datamodule.html) with a
+typed `thparams` — and nothing else. You write `setup` and the dataloader hooks exactly as you
+would in plain Lightning.
+
+Two optional schemas cover the usual needs. Inherit
+{class}`~hydrantic.data.SplitHparams` when you split one dataset into train/validation/test, and
+{class}`~hydrantic.data.LoaderHparams` for the standard `DataLoader` settings:
 
 ```python
 import torch
-from torch.utils.data import TensorDataset
+from torch.utils.data import DataLoader, TensorDataset
 
-from hydrantic import DataHparams, DataModule
+from hydrantic import DataModule, LoaderHparams, SplitHparams
 
 
-class BlobsDataHparams(DataHparams):
+class BlobsDataHparams(SplitHparams, LoaderHparams):
     num_samples: int = 2048
     input_dim: int = 16
     num_classes: int = 3
 
 
 class BlobsData(DataModule[BlobsDataHparams]):
-    def get_dataset(self):
+    def setup(self, stage):
+        if getattr(self, "train", None) is not None:
+            return  # setup runs once per stage
+
         h = self.thparams
         generator = torch.Generator().manual_seed(h.seed)
         labels = torch.randint(h.num_classes, (h.num_samples,), generator=generator)
         centers = torch.randn(h.num_classes, h.input_dim, generator=generator) * 3.0
         features = centers[labels] + torch.randn(h.num_samples, h.input_dim, generator=generator)
-        return TensorDataset(features, labels)
+
+        self.train, self.val, self.test = h.split_dataset(TensorDataset(features, labels))
+
+    def train_dataloader(self):
+        return DataLoader(self.train, **self.thparams.loader_kwargs(shuffle=True))
+
+    def val_dataloader(self):
+        return DataLoader(self.val, **self.thparams.loader_kwargs())
 ```
 
-If your splits already exist separately, override `get_split_datasets` instead. Downloads
-belong in Lightning's `prepare_data`.
+Both schemas are opt-in, so a datamodule that loads its validation set from a separate file just
+inherits `Hparams` and carries no `split`/`seed` it never reads.
+{func}`~hydrantic.utils.split_dataset` is also available as a plain function.
 
-`get_dataset` runs in `setup`, which Lightning calls on every rank, so this is DDP-correct
-without further thought. {class}`~hydrantic.data.DataHparams` controls `split`, `seed` and the
-dataloader keyword arguments.
+Build datasets in `setup`, not `__init__`: Lightning calls it on every rank once the process
+group exists, which is what makes this DDP-correct. Downloads belong in `prepare_data`.
+
+`shuffle` is deliberately not a `LoaderHparams` field — it differs per stage, and a baked-in
+default is how a training loader silently starts or stops shuffling. Pass it explicitly.
 
 ## Running it
 
