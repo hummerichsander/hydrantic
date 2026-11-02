@@ -1,0 +1,4 @@
+# Requires the `beamtime` extra: pip install "hydrantic[beamtime]"
+beamtime:
+  _target_: beamtime.lightning.BeamtimeLogger
+  dir: ${hydra:job.name}

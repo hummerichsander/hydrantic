@@ -122,7 +122,7 @@ class TestShippedConfigGroups:
 
     def test_logger_options(self, repository: ConfigRepository) -> None:
         options = set(repository.get_group_options("logger"))
-        assert options >= {"csv", "tensorboard", "wandb", "none"}
+        assert options >= {"csv", "tensorboard", "wandb", "beamtime", "none"}
 
     def test_callbacks_options(self, repository: ConfigRepository) -> None:
         options = set(repository.get_group_options("callbacks"))
@@ -341,3 +341,25 @@ class TestCliEndToEnd:
         assert result.returncode == 0, result.stderr
         assert (tmp_path / "checkpoints" / "last.ckpt").exists()
         assert (tmp_path / "metrics.csv").exists()
+
+    @pytest.mark.slow
+    def test_fit_records_a_beamtime_run(self, tmp_path: Path) -> None:
+        pytest.importorskip("beamtime")
+        group = tmp_path / "beamtime" / "example"
+        result = run_cli(
+            "fit",
+            "--config-dir",
+            "conf",
+            "--config-name",
+            "train",
+            "logger=beamtime",
+            f"logger.beamtime.dir={group}",
+            "trainer.max_epochs=1",
+            "data.num_samples=256",
+            "data.batch_size=16",
+            f"hydra.run.dir={tmp_path / 'run'}",
+        )
+        assert result.returncode == 0, result.stderr
+        (run,) = [path.parent for path in group.glob("*/_run.json")]
+        assert "validation/loss" in (run / "_metrics.jsonl").read_text()
+        assert "last.ckpt" in (run / "_artifacts.jsonl").read_text()

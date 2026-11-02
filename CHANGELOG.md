@@ -3,6 +3,16 @@
 All notable changes to this project are documented in this file. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-11-02
+
+### Added
+
+- `logger=beamtime`, a shipped logger group for
+  [Beamtime](https://github.com/hummerichsander/beamtime)'s `BeamtimeLogger`, and the
+  `hydrantic[beamtime]` extra it needs. Runs land in the Beamtime group named after the Hydra
+  job (`dir: ${hydra:job.name}`); override `logger.beamtime.dir` to file them elsewhere.
+  Without the extra, `hydrantic check` names it rather than reporting an unimportable target.
+
 ## [0.2.0] - 2026-08-03
 
 Shrinks the data layer. `DataModule` was carrying a dataloader-configuration mechanism that

@@ -36,7 +36,7 @@ resolvable with a `hydra.searchpath` entry in your primary config, then select t
 defaults:
   - _self_
   - trainer: default      # default | debug
-  - logger: csv           # csv | tensorboard | wandb | none, or a list: [csv, wandb]
+  - logger: csv           # csv | tensorboard | wandb | beamtime | none, or a list: [csv, wandb]
   - callbacks: default    # default | early_stopping | none
 
 hydra:

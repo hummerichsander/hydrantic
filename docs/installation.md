@@ -14,6 +14,7 @@ Loggers other than the CSV logger need their own package:
 | --- | --- |
 | `hydrantic[wandb]` | `logger=wandb` |
 | `hydrantic[tensorboard]` | `logger=tensorboard` |
+| `hydrantic[beamtime]` | `logger=beamtime` |
 | `hydrantic[rich]` | Lightning's rich progress bar and model summary |
 | `hydrantic[all]` | all of the above |
 

@@ -19,7 +19,8 @@ RECURSIVE_HINT = (
     "`hydra.utils.instantiate`."
 )
 
-# Targets that import cleanly but fail at construction when an optional package is absent.
+# Targets that need an optional package: Lightning's loggers import without it and fail at
+# construction, beamtime's does not import at all, so the check runs before the import.
 # Deliberately limited to the loggers hydrantic ships config groups for: selecting
 # `logger=wandb` is an expectation hydrantic itself created, so it should say how to meet it.
 # Anything else surfaces the underlying library's own message at instantiation time.
@@ -31,6 +32,7 @@ _OPTIONAL_REQUIREMENTS: dict[str, tuple[str, str]] = {
         "tensorboard",
         "hydrantic[tensorboard]",
     ),
+    "beamtime.lightning.BeamtimeLogger": ("beamtime", "hydrantic[beamtime]"),
 }
 
 
@@ -108,13 +110,13 @@ def check_target_signature(
     if not isinstance(target, str):
         return [("_target_", f"must be a dotted path string, got {type(target).__name__}")]
 
+    if (missing := check_optional_requirement(target)) is not None:
+        return [("_target_", missing)]
+
     try:
         resolved = resolve_target(target)
     except ImportError as error:
         return [("_target_", str(error))]
-
-    if (missing := check_optional_requirement(target)) is not None:
-        return [("_target_", missing)]
 
     if not callable(resolved):
         return [("_target_", f"{target!r} is not callable")]

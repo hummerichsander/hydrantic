@@ -109,6 +109,16 @@ class TestOptionalRequirements:
         monkeypatch.setattr("importlib.util.find_spec", lambda name: object())
         assert check_optional_requirement("lightning.pytorch.loggers.WandbLogger") is None
 
+    def test_unimportable_target_gets_the_install_hint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # BeamtimeLogger lives inside its optional package, so the import itself fails.
+        monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
+        node = {"_target_": "beamtime.lightning.BeamtimeLogger"}
+        ((key, message),) = check_target_signature(node)
+        assert key == "_target_"
+        assert "pip install 'hydrantic[beamtime]'" in message
+
     def test_unknown_target_is_ignored(self) -> None:
         assert check_optional_requirement("torch.optim.Adam") is None
 

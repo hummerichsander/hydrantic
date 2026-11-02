@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hydrantic"
-version = "0.2.0"
+version = "0.3.0"
 description = "Typed, Hydra-configurable PyTorch Lightning training: pydantic hyperparameter schemas plus a `_target_`-driven CLI."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,8 +37,9 @@ dependencies = [
 [project.optional-dependencies]
 wandb = ["wandb>=0.17,<1"]
 tensorboard = ["tensorboard>=2.14"]
+beamtime = ["beamtime>=0.1.1"]
 rich = ["rich>=13.0"]
-all = ["hydrantic[wandb,tensorboard,rich]"]
+all = ["hydrantic[wandb,tensorboard,beamtime,rich]"]
 docs = ["sphinx>=7.2", "myst-parser>=2.0", "sphinx-rtd-theme>=2.0"]
 dev = [
     "hydrantic[tensorboard,rich]",
